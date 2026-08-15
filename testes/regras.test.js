@@ -446,3 +446,28 @@ test('dá para filtrar o quadro por origem, com o filtro de tag de sempre', () =
   assert.equal(doAgente.length, 2)
   assert.ok(doAgente.every((c) => c.origem === 'agente da Maria'))
 })
+
+// --- Prioridade sabe o que trava o quê -------------------------------------
+
+test('bloqueia() diz quem está esperando por um card', () => {
+  const base = r.criarCard({ titulo: 'o gargalo' })
+  const um = r.criarCard({ titulo: 'espera A', prioridade: 'alta' })
+  const dois = r.criarCard({ titulo: 'espera B' })
+  r.criarDependencia({ cardId: um.id, dependeDeId: base.id, confirmada: true })
+  r.criarDependencia({ cardId: dois.id, dependeDeId: base.id, confirmada: false })
+
+  // Só a confirmada conta: sugestão da IA não define prioridade de ninguém.
+  const travados = r.bloqueia(base.id)
+  assert.equal(travados.length, 1)
+  assert.equal(travados[0].titulo, 'espera A')
+  assert.equal(travados[0].prioridade, 'alta')
+})
+
+test('concluir o bloqueador esvazia a lista de quem ele travava', () => {
+  const base = r.criarCard({ titulo: 'gargalo que cai' })
+  const preso = r.criarCard({ titulo: 'preso nele' })
+  r.criarDependencia({ cardId: preso.id, dependeDeId: base.id, confirmada: true })
+  assert.equal(r.bloqueia(base.id).length, 1)
+  r.concluirCard(preso.id)
+  assert.equal(r.bloqueia(base.id).length, 0, 'card feito não conta como travado')
+})

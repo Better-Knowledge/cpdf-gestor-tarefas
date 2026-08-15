@@ -366,6 +366,16 @@ export function estaAguardando(cardId) {
     .all(cardId)
 }
 
+/** Quem está esperando por este card. O inverso de `dependenciasDoCard`. */
+export function bloqueia(cardId) {
+  return banco()
+    .prepare(
+      `SELECT t.id, t.titulo, t.prioridade FROM dependencias d JOIN tarefas t ON t.id = d.card_id
+       WHERE d.depende_de_id = ? AND d.confirmada = 1 AND t.status = 'aberta'`,
+    )
+    .all(Number(cardId))
+}
+
 /** O que a conclusão deste card destravou. Consulta ao banco — sem IA nenhuma. */
 export function desbloqueadasPor(cardId) {
   return banco()

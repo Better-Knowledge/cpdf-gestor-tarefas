@@ -59,14 +59,51 @@ async function perguntar({ instrucao, prompt, ferramenta }) {
   return uso.input
 }
 
-/** Descreve um card para o prompt em uma linha. Menos token, mais foco. */
+/**
+ * Coage a saída do modelo para lista.
+ *
+ * O `tool_choice` garante que a ferramenta seja chamada; NÃO garante que cada
+ * campo venha na forma pedida. Numa das rodadas contra a API real o campo veio
+ * como objeto em vez de array e derrubou a rota com 500.
+ *
+ * Confiar na forma da resposta de um modelo é o mesmo erro de confiar no corpo
+ * de uma requisição: valide na entrada, sempre.
+ */
+function comoLista(valor) {
+  if (Array.isArray(valor)) return valor
+  if (valor == null) return []
+  if (typeof valor === 'object') {
+    console.warn('  [ia] o modelo devolveu objeto onde era lista — convertendo.')
+    return Object.values(valor)
+  }
+  console.warn(`  [ia] o modelo devolveu ${typeof valor} onde era lista — descartando.`)
+  return []
+}
+
+/**
+ * Descreve um card para o prompt em uma linha. Menos token, mais foco.
+ *
+ * O que o card BLOQUEIA entra aqui de propósito. Sem essa linha o modelo
+ * priorizava o bloqueador abaixo do que ele bloqueia — e aí a fila do "e
+ * agora?" pula as tarefas travadas e nunca sugere destravá-las. Foi um furo
+ * real, encontrado rodando contra a API.
+ */
 function resumirCard(card) {
   const partes = [`#${card.id} "${card.titulo}"`]
   if (card.descricao) partes.push(`— ${card.descricao}`)
   partes.push(`[projeto: ${card.projeto}, etapa: ${card.etapa}, data: ${card.data}`)
   if (card.tags.length) partes.push(`tags: ${card.tags.join(', ')}`)
-  partes.push(`prioridade atual: ${card.prioridade} (${card.prioridade_origem})]`)
-  return partes.join(' ')
+  partes.push(`prioridade atual: ${card.prioridade} (${card.prioridade_origem})`)
+
+  const travados = regras.bloqueia(card.id)
+  if (travados.length) {
+    partes.push(
+      `BLOQUEIA ${travados.length}: ${travados.map((t) => `"${t.titulo}" (${t.prioridade})`).join(', ')}`,
+    )
+  }
+  if (card.aguardando.length) partes.push(`aguardando "${card.aguardando[0].titulo}"`)
+
+  return `${partes.join(' ')}]`
 }
 
 // ---------------------------------------------------------------------------
@@ -108,6 +145,9 @@ Regras:
 - Quando o projeto tiver contexto, a prioridade sai do contexto — e a justificativa cita ele.
 - Sem contexto, use o que dá para inferir: data próxima, dependência, esforço aparente.
 - Não use "alta" para tudo. Se mais de um terço da lista for alta, nada é alta.
+- **Card que BLOQUEIA outro nunca tem prioridade menor que o que ele bloqueia.**
+  Ele é o caminho para o outro acontecer: deixá-lo embaixo trava a fila inteira,
+  por mais que a tarefa em si pareça pequena.
 - A justificativa é uma frase, em português, escrita para o dono da tarefa ler.`
 
 /**
@@ -155,7 +195,7 @@ Priorize todos os cards da lista.`,
 
   let priorizados = 0
   let sugestoes = 0
-  for (const item of resultado.prioridades ?? []) {
+  for (const item of comoLista(resultado.prioridades)) {
     const card = validos.get(item.id)
     if (!card) continue // o modelo inventou um id: ignora em silêncio
     const ehSugestao = semContexto.has(card.projeto)
@@ -298,7 +338,7 @@ Encontre as dependências que existirem. Se não existir nenhuma clara, devolva 
   )
 
   const propostas = []
-  for (const item of resultado.dependencias ?? []) {
+  for (const item of comoLista(resultado.dependencias)) {
     if (!ids.has(item.card_id) || !ids.has(item.depende_de_id)) continue
     if (jaExistem.has(`${item.card_id}->${item.depende_de_id}`)) continue
     try {
@@ -364,6 +404,9 @@ Regras:
   num bloco só, o que é de cinco minutos encaixado entre as coisas.
 - Troca de contexto é o custo que você está tentando reduzir.
 - Máximo de quatro blocos. Um dia com sete blocos não é um dia organizado.
+- **O que BLOQUEIA outra tarefa vem cedo**, mesmo que pareça pequeno ou
+  administrativo. Deixar o gargalo para a tarde é perder o dia das tarefas que
+  dependem dele — e contradiz a prioridade que o sistema já mostrou na tela.
 - Nada de frase de motivação. O recado é prático ou não existe.`
 
 export async function ordemDoDia() {
@@ -384,10 +427,10 @@ Monte a ordem do dia.`,
   })
 
   const porId = new Map(cards.map((c) => [c.id, c]))
-  const blocos = (resultado.blocos ?? [])
+  const blocos = comoLista(resultado.blocos)
     .map((bloco) => ({
       ...bloco,
-      cards: (bloco.cards ?? []).map((id) => porId.get(id)).filter(Boolean),
+      cards: comoLista(bloco.cards).map((id) => porId.get(id)).filter(Boolean),
     }))
     .filter((bloco) => bloco.cards.length)
 
@@ -432,7 +475,9 @@ pessoa trava porque não sabe onde começar.
 Regras:
 - Cada parte tem que ser fazível numa sentada, e a PRIMEIRA precisa ser fácil de começar.
 - De dois a quatro pedaços. Mais que isso é outro projeto, não uma quebra.
-- Se um card já for pequeno e específico, não o inclua na resposta.`
+- Se um card já for pequeno e específico, não o inclua na resposta.
+- **Se nenhum card precisar ser quebrado, devolva \`quebras\` como lista vazia: []**.
+  Não escreva uma frase explicando — o campo é uma lista, sempre.`
 
 /** Não altera nada — só devolve as sugestões. Quebrar é decisão do usuário. */
 export async function sugerirQuebra({ dias = DIAS_ATE_SUGERIR_QUEBRA } = {}) {
@@ -451,8 +496,8 @@ ${parados.map((c) => `${resumirCard(c)} — parado desde ${(c.movido_em ?? c.cri
   })
 
   const porId = new Map(parados.map((c) => [c.id, c]))
-  const quebras = (resultado.quebras ?? [])
-    .filter((q) => porId.has(q.id) && (q.partes ?? []).length >= 2)
+  const quebras = comoLista(resultado.quebras)
+    .filter((q) => porId.has(q.id) && comoLista(q.partes).length >= 2)
     .map((q) => ({ card: porId.get(q.id), partes: q.partes }))
 
   return {
