@@ -88,8 +88,11 @@ capacidade e passou a ser sequenciamento.
 **Operação**
 - Tudo o que a v1 já fazia: registrar por frase · concluir · adiar · listar · filtrar
 - **Modo "e agora?"** — a tela que mostra **uma** tarefa, a próxima, com a justificativa
-- **O resumo diário** no Telegram, agora com o que foi destravado e a ordem sugerida
+- **O Telegram como entrada e saída** — frase mandada ao bot vira card; o resumo do dia
+  chega sozinho, agora com o que foi destravado
 - **Todas as operações acessíveis ao agente** — inclusive as novas
+- **Chaves de API criadas no painel**, uma por agente, com papel e escopo de IA
+- **Telegram pareado por código**, com allowlist — e frase virando card pelo celular
 
 ### Não vai ter, nem na v2
 
@@ -103,20 +106,62 @@ capacidade e passou a ser sequenciamento.
 ### Uma fechadura, e não uma portaria
 
 O sistema continua sendo **de um usuário só**. Mas ele precisa ser alcançável pelo agente, e
-o que é alcançável precisa de tranca. Então existem **duas credenciais, e nenhum cadastro**:
+o que é alcançável precisa de tranca. Então existem credenciais — e **nenhum cadastro**:
 
-- **Usuário e senha** (padrão `admin` / `cpdf2026`) para o painel — é gente digitando.
-- **Uma chave de API** para o agente — `Authorization: Bearer`. Nunca a senha do dono: chave
-  se troca sozinha, senha não.
+- **Usuário e senha** para o painel (padrão `admin` / `cpdf2026`) — é gente digitando.
+- **Chaves de API para os agentes**, criadas **dentro da aplicação**, uma por agente. Nunca
+  a senha do dono: chave se troca sozinha, senha não.
+
+Cada chave tem **duas dimensões de escopo, independentes**:
+
+| | O que decide |
+|---|---|
+| **Papel** | `dono` faz tudo · `convidado` registra, conclui, adia e move |
+| **Escopo de IA** | se a chave pode disparar as rotinas que gastam a conta da Anthropic |
+
+São separadas de propósito: existe convidado de confiança que roda IA, e existe agente
+organizador que é dono e nunca gasta a conta. Amarrar as duas coisas num "nível de acesso"
+só obrigaria a escolher entre confiar e economizar.
+
+**Só o hash da chave é guardado.** A chave aparece uma vez, na tela que a cria. Chave que dá
+para reler no banco é senha em texto claro com outro nome.
 
 A distinção que mantém isso fora da coluna de cima: **não há cadastro, não há segundo
 usuário, não há recuperação de senha.** É uma fechadura na porta, não uma portaria com
-livro de visitas — e é por isso que ela custa um arquivo de 90 linhas em vez de uma
-funcionalidade inteira.
+livro de visitas.
 
 **E a tranca é opcional por construção.** Sem `.env`, o servidor escuta só em `127.0.0.1` e
 não pede nada: é exatamente o sistema que o build ao vivo da v1 produz, e é o que mantém o
 slide 6 verdadeiro. A tranca acende quando o arquivo existe.
+
+**A origem fica no card.** Quem registrou vira campo e vira tag — `#via-agente-da-maria`,
+`#via-telegram-fernando` — então o filtro de tag que já existe serve para ver o que cada
+agente escreveu. A origem vem de quem autenticou, nunca do corpo da requisição: se viesse
+do corpo, um agente se apresentaria como outro.
+
+### O Telegram: allowlist com pareamento
+
+Um bot do Telegram é **público por natureza**. Qualquer pessoa que descubra o nome dele abre
+uma conversa e começa a falar. O token protege o bot de ser **operado** por terceiros; não
+protege de ser **conversado** por terceiros.
+
+Guardar um `chat_id` fixo no `.env` responde *para quem mandar* e não responde *quem pode
+falar* — que é a pergunta que importa quando o sistema está num domínio público.
+
+Então:
+
+- o bot **só atende chat que está na allowlist**;
+- entrar na allowlist exige um **código gerado no painel** — seis dígitos, quinze minutos,
+  uso único;
+- quem tem acesso ao painel é quem autoriza.
+
+Quem **não** está na lista recebe só a instrução de pareamento: nada de conteúdo, e nada de
+"não autorizado" com detalhe. Para quem está de fora, o sistema não conta o que existe do
+outro lado.
+
+Quem está na lista pode mandar **qualquer frase**, que vira card com a origem registrada, e
+pedir `/hoje`. É a promessa do produto — *registrar custa uma frase* — chegando pelo celular
+sem aplicativo nenhum, que é exatamente o argumento de não construir app.
 
 > **Sobre os relatórios de produtividade:** ficam de fora de propósito. Um sistema que mede
 > quanto você produziu é um sistema que produz culpa, e culpa é exatamente o que trava as
@@ -426,6 +471,13 @@ faz a seguinte valer mais.
 **A fatia 5 é a razão de o produto existir.** As quatro anteriores são infraestrutura para
 ela. Se o tempo acabar, ela é a última a ser cortada.
 
+**Uma sétima fatia apareceu depois**, e só porque o sistema foi posto num domínio público
+para uma demonstração: **acesso** — senha no painel, chaves por agente com escopo, limite de
+taxa, e o Telegram por allowlist. Ela não estava no plano porque um sistema de um usuário só,
+rodando em `localhost`, não precisa de nada disso. **Sair da máquina é o que cria a
+necessidade** — e vale reparar que a fatia inteira existe para responder uma pergunta que o
+produto não tinha antes: *quem é você?*
+
 ---
 
 ## Anexo · Nota técnica
@@ -446,8 +498,31 @@ O que a v2 acrescenta:
   não JSON extraído de texto.
 - **Ids alucinados são descartados em silêncio.** Toda resposta do modelo é conferida contra
   os ids que foram enviados no prompt. O que não bater, não vira escrita no banco.
+- **A FORMA da resposta também é validada.** `tool_choice` garante que a ferramenta seja
+  chamada; **não** garante que cada campo venha no tipo pedido. Numa rodada real o campo
+  veio como string onde o schema pedia lista, e derrubou a rota com 500. Toda saída passa
+  por uma coerção antes de virar `.map`/`.filter`. Confiar na forma da resposta de um modelo
+  é o mesmo erro de confiar no corpo de uma requisição.
+- **O prompt de priorização precisa saber o que cada card BLOQUEIA.** Sem isso o modelo
+  põe o gargalo abaixo do que ele trava — e como o modo "e agora?" pula o que está
+  aguardando, o sistema nunca sugere destravar. Foi o pior bug encontrado, e ele é
+  invisível em teste sem chave de API.
 - **Agendamento:** o mesmo mecanismo do resumo das 18h (Agendador de Tarefas no Windows,
   `launchd`/`cron` no Mac), com uma rodada `npm run analisar` de madrugada.
+- **Esquema versionado por `PRAGMA user_version`**, e cada versão é migração: 1 é a v1, 2
+  acrescenta projetos/etapas/tags/dependências, 3 as chaves e a origem do card, 4 a
+  allowlist do Telegram. Nenhuma recria tabela.
+- **O bot é processo separado** (`npm run telegram`), em long polling. Se ele cair — rede,
+  token trocado, Telegram fora do ar — o painel e a API não sentem. O `offset` do
+  `getUpdates` fica no banco: sem isso, reiniciar faria reprocessar mensagens antigas e
+  registrar tudo de novo.
+- **Limite de taxa por papel** (600/min dono, 60/min convidado). Não é defesa contra ataque
+  — é defesa contra agente em laço, que faz centenas de chamadas sem má intenção nenhuma.
+- **Atrás de proxy reverso**, `ATRAS_DE_PROXY=true`: sem isso o limite conta todo mundo como
+  o mesmo visitante, porque as chamadas chegam com o IP do proxy.
+- **Exposto na rede e sem credencial, o servidor recusa subir.** As chaves criadas no painel
+  são aditivas — dão acesso a quem as tem, não exigem credencial de quem não tem. Um
+  contêiner que não sobe se conserta em dois minutos; um que sobe aberto se descobre tarde.
 - **Degradação:** sem chave de API ou sem internet, **o sistema inteiro continua
   funcionando** — só não prioriza, não sugere dependência e não monta a ordem do dia. O
   quadro, os filtros e o registro nunca dependem de IA. Na tela, os botões de IA

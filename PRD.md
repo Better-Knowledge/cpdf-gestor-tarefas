@@ -259,6 +259,11 @@ Chegou no **5**, o sistema está de pé.
   Telegram, com token e chat id lidos de um `.env` local. O agendamento é do sistema
   operacional (Agendador de Tarefas no Windows, `launchd`/`cron` no Mac) — porque **agente
   não acorda sozinho**.
+
+  > O chat id fixo no `.env` é o caminho **de hoje**, e ele resolve o caso de um usuário só
+  > numa máquina só. Ele responde *para quem mandar* — não responde *quem pode falar com o
+  > bot*, que é uma pergunta que só aparece quando o sistema sai da sua máquina. A v2
+  > resolve isso com allowlist e pareamento.
 - **Regra de negócio mora num lugar só**, um módulo `regras.js`. API, CLI e painel chamam de
   lá. Regra reescrita na tela é painel e agente discordando sobre o que o sistema faz.
 - **README obrigatório ao final:** o que o sistema faz · como abrir · onde fica o arquivo
@@ -288,5 +293,5 @@ consegue prever.
 ## Procedência
 
 - Promessa de escopo: deck de abertura do Danilo Gato, slide 2.
-- Régua agente × aplicação: Bloco 2 — *O segundo usuário*, slides 22 e 23.
-- Leitura guiada deste documento: Bloco 3 — *Do PRD ao sistema*, slides 5, 6, 7, 9, 11 e 14.
+- Régua agente × aplicação: [`20260815-b2-o-segundo-usuario`, slides 22 e 23.
+- Leitura guiada deste documento: [`20260815-b3-do-prd-ao-sistema`, slides 5, 6, 7, 9, 11 e 14.
