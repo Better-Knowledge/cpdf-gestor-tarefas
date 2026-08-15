@@ -1,44 +1,38 @@
 /** Peças pequenas de interface, usadas em mais de um lugar. */
 
 export const PRIORIDADE_COR = {
-  alta: 'bg-amber-500',
-  media: 'bg-stone-400',
-  baixa: 'bg-stone-300',
+  alta: 'bg-terracota',
+  media: 'bg-pedra',
+  baixa: 'bg-borda-forte',
 }
 
 export const PRIORIDADE_ROTULO = { alta: 'alta', media: 'média', baixa: 'baixa' }
 
-export function Botao({ children, variante = 'neutro', className = '', ...resto }) {
-  const estilos = {
-    neutro:
-      'bg-white border-borda text-tinta hover:bg-stone-50 disabled:opacity-40 disabled:hover:bg-white',
-    forte: 'bg-tinta border-tinta text-papel hover:bg-stone-700 disabled:opacity-40',
-    calmo: 'bg-calmo border-calmo text-white hover:bg-teal-800 disabled:opacity-40',
-    fantasma: 'bg-transparent border-transparent text-suave hover:text-tinta hover:bg-stone-100',
-  }[variante]
+// Os nomes antigos continuam valendo: trocar o design system não deveria
+// obrigar a reescrever cada chamada de botão do app.
+const VARIANTES = {
+  neutro: '',
+  forte: 'escuro',
+  escuro: 'escuro',
+  calmo: 'primario',
+  primario: 'primario',
+  fantasma: 'fantasma',
+  perigo: 'perigo',
+}
+
+export function Botao({ children, variante = 'neutro', miudo = false, className = '', ...resto }) {
+  const classe = VARIANTES[variante] ?? ''
   return (
-    <button
-      {...resto}
-      className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm
-        font-medium transition-colors disabled:cursor-not-allowed ${estilos} ${className}`}
-    >
+    <button {...resto} className={`btn ${classe} ${miudo ? 'miudo' : ''} ${className}`}>
       {children}
     </button>
   )
 }
 
 export function Etiqueta({ children, tom = 'neutro', ...resto }) {
-  const tons = {
-    neutro: 'bg-stone-100 text-suave',
-    realce: 'bg-realce-claro text-realce',
-    calmo: 'bg-calmo-claro text-calmo',
-  }[tom]
+  const classe = { neutro: '', realce: 'accent', calmo: 'calmo' }[tom]
   return (
-    <span
-      {...resto}
-      className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px]
-        font-medium leading-tight ${tons}`}
-    >
+    <span {...resto} className={`chip ${classe}`}>
       {children}
     </span>
   )
@@ -62,13 +56,25 @@ export function formatarData(iso) {
 }
 
 export function Vazio({ children }) {
-  return <p className="px-1 py-8 text-center text-sm text-suave">{children}</p>
+  return (
+    <p className="font-serifa px-1 py-8 text-center text-sm text-pedra italic">{children}</p>
+  )
 }
 
 export function Carregando() {
   return (
     <div className="flex h-full items-center justify-center">
-      <p className="text-sm text-suave">Abrindo…</p>
+      <p className="text-sm text-pedra">Abrindo…</p>
     </div>
+  )
+}
+
+/** O cabeçalho de uma tela: rótulo miúdo em cima, título grande embaixo. */
+export function TituloDeTela({ eyebrow, children, className = '' }) {
+  return (
+    <header className={className}>
+      {eyebrow && <p className="eyebrow">{eyebrow}</p>}
+      <h1 className="titulo-tela mt-2 text-4xl">{children}</h1>
+    </header>
   )
 }

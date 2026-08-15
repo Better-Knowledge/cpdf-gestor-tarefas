@@ -371,3 +371,78 @@ test('procurar devolve todos os parecidos, para o agente perguntar qual é', () 
 test('card que não existe erra com o id na mensagem', () => {
   assert.throws(() => r.buscarCard(99999), /99999/)
 })
+
+// --- Chaves de API ---------------------------------------------------------
+
+const ch = await import('../server/chaves.js')
+
+test('a chave criada aparece uma vez e nunca mais', () => {
+  const criada = ch.criarChave({ nome: 'agente da Maria', papel: 'convidado' })
+  assert.match(criada.chave, /^gt_/)
+  assert.equal(criada.papel, 'convidado')
+  assert.equal(criada.pode_ia, false)
+
+  // A listagem nunca devolve o segredo — só o prefixo, para reconhecer qual é.
+  const listada = ch.listarChaves().find((c) => c.id === criada.id)
+  assert.equal(listada.chave, undefined)
+  assert.ok(listada.prefixo.endsWith('…'))
+  assert.ok(criada.chave.startsWith(listada.prefixo.slice(0, -1)))
+})
+
+test('a chave autentica e registra o último uso', () => {
+  const { chave, id } = ch.criarChave({ nome: 'agente do João' })
+  assert.equal(ch.listarChaves().find((c) => c.id === id).ultimo_uso, null)
+
+  const autenticada = ch.autenticarChave(chave)
+  assert.equal(autenticada.nome, 'agente do João')
+  assert.ok(ch.listarChaves().find((c) => c.id === id).ultimo_uso)
+})
+
+test('chave errada e chave revogada não autenticam', () => {
+  const { chave, id } = ch.criarChave({ nome: 'para revogar' })
+  assert.ok(ch.autenticarChave(chave))
+  ch.revogarChave(id)
+  assert.equal(ch.autenticarChave(chave), null)
+  assert.equal(ch.autenticarChave('gt_inventada'), null)
+  assert.equal(ch.autenticarChave(null), null)
+})
+
+test('o escopo de IA é independente do papel', () => {
+  const convidadoComIa = ch.criarChave({ nome: 'convidado de confiança', podeIa: true })
+  assert.equal(convidadoComIa.papel, 'convidado')
+  assert.equal(convidadoComIa.pode_ia, true)
+
+  const donoSemIa = ch.criarChave({ nome: 'agente organizador', papel: 'dono', podeIa: false })
+  assert.equal(donoSemIa.papel, 'dono')
+  assert.equal(donoSemIa.pode_ia, false)
+
+  const mudada = ch.alterarEscopo(donoSemIa.id, { podeIa: true })
+  assert.equal(mudada.pode_ia, true)
+  assert.equal(mudada.papel, 'dono', 'mudar o escopo de IA não mexe no papel')
+})
+
+test('chave sem nome e papel inválido são recusados', () => {
+  assert.throws(() => ch.criarChave({ nome: '  ' }), /precisa de um nome/)
+  assert.throws(() => ch.criarChave({ nome: 'x', papel: 'chefe' }), /dono.*convidado/)
+})
+
+// --- Origem do card --------------------------------------------------------
+
+test('card criado por uma chave carrega a origem e vira tag', () => {
+  const card = r.criarCard({ titulo: 'card do agente', origem: 'agente da Maria' })
+  assert.equal(card.origem, 'agente da Maria', 'a origem guarda o nome legível')
+  assert.ok(card.tags.includes('via-agente-da-maria'))
+})
+
+test('card criado no painel não ganha etiqueta de origem', () => {
+  const card = r.criarCard({ titulo: 'card do painel' })
+  assert.equal(card.origem, null)
+  assert.ok(!card.tags.some((t) => t.startsWith('via-')))
+})
+
+test('dá para filtrar o quadro por origem, com o filtro de tag de sempre', () => {
+  r.criarCard({ titulo: 'outro do mesmo agente', origem: 'agente da Maria' })
+  const doAgente = r.listarCards({ tag: 'via-agente-da-maria', status: 'aberto' })
+  assert.equal(doAgente.length, 2)
+  assert.ok(doAgente.every((c) => c.origem === 'agente da Maria'))
+})

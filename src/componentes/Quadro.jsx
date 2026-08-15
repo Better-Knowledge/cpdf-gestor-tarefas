@@ -6,17 +6,13 @@ function Coluna({ etapa, cards, aoAbrir, hoje, aoDecidirPrioridade }) {
   const { setNodeRef, isOver } = useDroppable({ id: etapa.nome })
 
   return (
-    <section className="flex min-w-72 flex-1 flex-col">
-      <header className="mb-3 flex items-baseline justify-between px-1">
-        <h2 className="text-xs font-semibold tracking-wide text-suave uppercase">{etapa.nome}</h2>
-        <span className="text-xs text-suave">{cards.length}</span>
+    <section ref={setNodeRef} className={`coluna flex min-w-72 flex-1 flex-col ${isOver ? 'sobre' : ''}`}>
+      <header className="coluna-titulo">
+        <span>{etapa.nome}</span>
+        <span className="conta">{cards.length}</span>
       </header>
 
-      <div
-        ref={setNodeRef}
-        className={`flex flex-1 flex-col gap-2 rounded-xl p-2 transition-colors
-          ${isOver ? 'bg-realce-claro/60' : 'bg-stone-100/60'}`}
-      >
+      <div className="flex flex-1 flex-col gap-2.5">
         {cards.map((card) => (
           <Cartao
             key={card.id}
@@ -26,7 +22,9 @@ function Coluna({ etapa, cards, aoAbrir, hoje, aoDecidirPrioridade }) {
             aoDecidirPrioridade={aoDecidirPrioridade}
           />
         ))}
-        {!cards.length && <p className="px-2 py-6 text-center text-xs text-suave">vazio</p>}
+        {!cards.length && (
+          <p className="font-serifa px-2 py-6 text-center text-xs text-pedra italic">vazio</p>
+        )}
       </div>
     </section>
   )

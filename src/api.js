@@ -66,6 +66,12 @@ export const api = {
   dispensarOferta: (id) => pedir(`/projetos/${id}/oferta-contexto/dispensar`, { method: 'POST' }),
   escreverContexto: (projeto) => pedir('/ia/escrever-contexto', { method: 'POST', corpo: { projeto } }),
 
+  eu: () => pedir('/eu'),
+  chaves: () => pedir('/chaves'),
+  criarChave: (corpo) => pedir('/chaves', { method: 'POST', corpo }),
+  alterarChave: (id, corpo) => pedir(`/chaves/${id}`, { method: 'PATCH', corpo }),
+  revogarChave: (id) => pedir(`/chaves/${id}/revogar`, { method: 'POST' }),
+
   iaDisponivel: () => pedir('/ia/disponivel'),
   priorizar: (projeto) => pedir('/ia/priorizar', { method: 'POST', corpo: { projeto } }),
   relacionar: (projeto) => pedir('/ia/relacionar', { method: 'POST', corpo: { projeto } }),

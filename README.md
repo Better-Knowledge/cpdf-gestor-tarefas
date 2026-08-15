@@ -139,24 +139,44 @@ Cenário: você projeta o painel e os agentes da plateia escrevem nele.
 
 **1. HTTPS não é opcional.** HTTP Basic manda usuário e senha em base64, que é
 texto claro. Sem TLS, sua senha e as chaves viajam abertas em qualquer rede
-entre você e a VPS. Com [Caddy](https://caddyserver.com) o certificado é
-automático:
+entre você e a VPS.
+
+Com **Traefik**, via `docker-compose.yml`:
+
+```yaml
+services:
+  gestor:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    networks: [web]
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.gestor.rule=Host(`cpdf.taskmanager.better-knowledge.com`)
+      - traefik.http.routers.gestor.entrypoints=websecure
+      - traefik.http.routers.gestor.tls.certresolver=le
+      - traefik.http.services.gestor.loadbalancer.server.port=3000
+networks:
+  web:
+    external: true
+```
+
+Ajuste `entrypoints`, `certresolver` e o nome da rede para o que a sua Traefik
+já usa.
+
+**2. Dentro do contêiner o app precisa ouvir em todas as interfaces**, senão a
+Traefik não alcança. É a única situação em que `HOST` muda:
 
 ```
-gestor.seudominio.com.br {
-    reverse_proxy 127.0.0.1:3000
-}
-```
-
-**2. O app continua ouvindo só em localhost.** Quem fala com a internet é o
-Caddy. Não mude o `HOST` — mude só isto no `.env`:
-
-```
+HOST=0.0.0.0
 ATRAS_DE_PROXY=true
 ```
 
-Sem essa linha o limite de taxa conta todo mundo como o mesmo visitante, porque
-todas as chamadas chegam com o IP do proxy.
+Isso é seguro **porque a porta 3000 não é publicada** — só a Traefik, que está
+na mesma rede Docker, fala com ela. Não ponha `ports:` no serviço.
+
+Sem `ATRAS_DE_PROXY=true` o limite de taxa conta todo mundo como o mesmo
+visitante, porque todas as chamadas chegam com o IP da Traefik.
 
 **3. O `.env` da VPS precisa de tudo:**
 
@@ -164,12 +184,16 @@ todas as chamadas chegam com o IP do proxy.
 AUTH_USUARIO=admin
 AUTH_SENHA=<uma senha que não seja a do exemplo>
 API_KEY=<npm run chave>
-API_KEY_CONVIDADO=<npm run chave, outra vez>
 ANTHROPIC_API_KEY=<a sua, com budget definido no console>
+HOST=0.0.0.0
 ATRAS_DE_PROXY=true
 ```
 
 **Troque `cpdf2026`.** Ela está publicada neste README.
+
+As chaves dos agentes da turma **não vão no `.env`** — crie no painel, em
+**chaves**, uma por pessoa. Assim dá para revogar uma sem derrubar as outras, e
+cada card mostra de quem veio.
 
 **4. Ponha um teto de gasto** no console da Anthropic, na chave que for para a
 VPS. O convidado não roda IA, mas teto é barato e engano acontece.

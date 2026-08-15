@@ -141,6 +141,35 @@ CREATE INDEX IF NOT EXISTS idx_tarefas_status  ON tarefas(status);
 CREATE INDEX IF NOT EXISTS idx_tarefas_data    ON tarefas(data);
 `
 
+/**
+ * v3 — as chaves de API saem do `.env` e passam a morar no banco.
+ *
+ * Só o HASH é guardado. Se este arquivo vazar, ninguém entra com ele: uma
+ * chave que dá para ler no banco é uma senha guardada em texto claro com outro
+ * nome. O `prefixo` existe só para a tela conseguir dizer QUAL chave é qual.
+ */
+const ESQUEMA_V3 = `
+CREATE TABLE chaves (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  nome       TEXT NOT NULL,
+  prefixo    TEXT NOT NULL,
+  hash       TEXT NOT NULL UNIQUE,
+  papel      TEXT NOT NULL DEFAULT 'convidado',
+  pode_ia    INTEGER NOT NULL DEFAULT 0,
+  criada_em  TEXT NOT NULL,
+  ultimo_uso TEXT,
+  revogada   INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX idx_chaves_hash ON chaves(hash);
+`
+
+const COLUNAS_V3 = [
+  // De onde veio o card: qual chave o registrou. Num quadro compartilhado numa
+  // demonstração ao vivo, sem isto ninguém sabe quem escreveu o quê.
+  ['origem', 'TEXT'],
+]
+
 const COLUNAS_V2 = [
   ['descricao', 'TEXT'],
   ['projeto_id', 'INTEGER REFERENCES projetos(id)'],
@@ -170,6 +199,15 @@ function migrar(bd) {
     bd.exec('PRAGMA user_version = 2')
     criarProjetoPadrao(bd)
     adotarCardsOrfaos(bd)
+    versao = 2
+  }
+
+  if (versao < 3) {
+    bd.exec(ESQUEMA_V3)
+    for (const [nome, definicao] of COLUNAS_V3) {
+      bd.exec(`ALTER TABLE tarefas ADD COLUMN ${nome} ${definicao}`)
+    }
+    bd.exec('PRAGMA user_version = 3')
   }
 }
 

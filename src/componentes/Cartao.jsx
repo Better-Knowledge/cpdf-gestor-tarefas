@@ -35,9 +35,7 @@ export default function Cartao({ card, aoAbrir, atrasado, aoDecidirPrioridade })
         }
       }}
       style={transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined}
-      className={`group cursor-grab touch-none rounded-xl border border-borda bg-white p-3
-        text-left shadow-sm transition-shadow hover:shadow-md active:cursor-grabbing
-        ${isDragging ? 'arrastando' : ''} ${card.hoje ? 'ring-2 ring-realce/40' : ''}`}
+      className={`cartao touch-none ${isDragging ? 'arrastando' : ''} ${card.hoje ? 'do-dia' : ''}`}
     >
       <div className="flex items-start gap-2">
         <span
@@ -45,10 +43,14 @@ export default function Cartao({ card, aoAbrir, atrasado, aoDecidirPrioridade })
           className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${PRIORIDADE_COR[card.prioridade]}`}
         />
         <div className="min-w-0 flex-1">
-          <h3 className="text-sm leading-snug font-medium text-tinta">{card.titulo}</h3>
+          <h3 className="font-titulo text-[15px] leading-snug font-semibold text-tinta">
+            {card.titulo}
+          </h3>
 
           {card.justificativa && (
-            <p className="mt-1 text-[11px] leading-snug text-suave italic">{card.justificativa}</p>
+            <p className="font-serifa mt-1 text-[12px] leading-snug text-pedra italic">
+              {card.justificativa}
+            </p>
           )}
 
           <div className="mt-2 flex flex-wrap items-center gap-1">
@@ -66,18 +68,17 @@ export default function Cartao({ card, aoAbrir, atrasado, aoDecidirPrioridade })
             Os botões param a propagação para não abrir o card junto.
           */}
           {card.prioridade_sugerida && (
-            <div className="mt-2 rounded-md border border-realce/30 bg-realce-claro/50 px-2 py-1.5">
-              <p className="text-[11px] leading-snug text-realce">
+            <div className="mt-2 rounded-lg border border-terracota/30 bg-terracota/6 px-2 py-1.5">
+              <p className="text-[11px] leading-snug text-terracota">
                 Sugestão: prioridade <strong>{PRIORIDADE_ROTULO[card.prioridade]}</strong>
               </p>
-              <div className="mt-1 flex gap-1">
+              <div className="mt-1.5 flex gap-1.5">
                 <button
                   onClick={(e) => {
                     e.stopPropagation()
                     aoDecidirPrioridade(card, true)
                   }}
-                  className="rounded border border-realce/40 bg-white px-1.5 py-0.5 text-[11px]
-                    font-medium text-realce hover:bg-realce-claro"
+                  className="btn primario miudo"
                 >
                   é isso
                 </button>
@@ -86,7 +87,7 @@ export default function Cartao({ card, aoAbrir, atrasado, aoDecidirPrioridade })
                     e.stopPropagation()
                     aoDecidirPrioridade(card, false)
                   }}
-                  className="rounded px-1.5 py-0.5 text-[11px] text-suave hover:bg-white"
+                  className="btn fantasma miudo"
                 >
                   não
                 </button>
@@ -95,14 +96,19 @@ export default function Cartao({ card, aoAbrir, atrasado, aoDecidirPrioridade })
           )}
 
           {travado && (
-            <p className="mt-2 rounded-md bg-stone-100 px-2 py-1 text-[11px] text-suave">
+            <p className="mt-2 rounded-lg bg-papel-fundo px-2 py-1 text-[11px] text-grafite">
               aguardando <span className="font-medium">{card.aguardando[0].titulo}</span>
               {card.aguardando.length > 1 && ` e mais ${card.aguardando.length - 1}`}
             </p>
           )}
 
-          <p className={`mt-2 text-[11px] ${atrasado ? 'text-realce' : 'text-suave'}`}>
+          <p
+            className={`mt-2 text-[11px] ${
+              atrasado ? 'font-medium text-terracota' : 'text-pedra'
+            }`}
+          >
             {formatarData(card.data)}
+            {card.origem && <span className="ml-1.5 text-pedra">· via {card.origem}</span>}
           </p>
         </div>
       </div>

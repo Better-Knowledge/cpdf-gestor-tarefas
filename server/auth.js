@@ -19,6 +19,7 @@
  */
 
 import { timingSafeEqual } from 'node:crypto'
+import { autenticarChave } from './chaves.js'
 
 /** Comparação de tempo constante — comparar com === vaza o tamanho do acerto. */
 function iguais(a, b) {
@@ -70,8 +71,13 @@ const PROIBIDO_AO_CONVIDADO = [
   { metodo: 'POST', caminho: /^\/replanejar$/, motivo: 'mexer em tudo de uma vez' },
   { metodo: 'POST', caminho: /^\/projetos$/, motivo: 'criar projeto' },
   { metodo: 'PATCH', caminho: /^\/projetos\//, motivo: 'mudar projeto' },
-  { metodo: 'POST', caminho: /^\/ia\//, motivo: 'rodar IA' },
+  { metodo: 'GET', caminho: /^\/chaves/, motivo: 'ver as chaves' },
+  { metodo: 'POST', caminho: /^\/chaves/, motivo: 'criar chave' },
+  { metodo: 'PATCH', caminho: /^\/chaves/, motivo: 'mudar chave' },
 ]
+
+/** Rotas que gastam a conta da Anthropic — separadas do papel, por escopo. */
+const CUSTA_IA = /^\/ia\//
 
 export function convidadoPode(metodo, caminho) {
   const bloqueio = PROIBIDO_AO_CONVIDADO.find(
@@ -104,28 +110,55 @@ function basicDaRequisicao(req) {
  */
 export function porteiro(req, res, proximo) {
   const config = configuracao()
-  if (!config.ligada) {
+  const chave = chaveDaRequisicao(req)
+
+  /*
+   * A chave é conferida MESMO com a tranca do .env desligada.
+   *
+   * A versão anterior devolvia "dono" antes de olhar a chave quando não havia
+   * `.env`, e três coisas quebravam de uma vez: chave do banco ignorada, card
+   * sem etiqueta de origem, e chave revogada continuando a entrar. Ausência de
+   * tranca significa "não exijo credencial" — nunca "aceito qualquer uma".
+   */
+  if (!config.ligada && chave === null) {
     req.papel = 'dono'
+    req.podeIa = true
+    req.origem = null
     return proximo()
   }
 
-  const chave = chaveDaRequisicao(req)
   if (chave !== null) {
+    // As duas do .env são chaves-mestras: existem para você não conseguir se
+    // trancar do lado de fora revogando a última chave do banco.
     if (config.exigeChave && iguais(chave, config.chave)) {
       req.papel = 'dono'
+      req.podeIa = true
+      req.origem = 'chave-mestra'
       return proximo()
     }
     if (config.temConvidado && iguais(chave, config.chaveConvidado)) {
       req.papel = 'convidado'
+      req.podeIa = false
+      req.origem = 'convidado'
       return proximo()
     }
-    return res.status(401).json({ erro: 'Chave de API inválida.' })
+
+    const doBanco = autenticarChave(chave)
+    if (doBanco) {
+      req.papel = doBanco.papel
+      req.podeIa = doBanco.pode_ia
+      req.origem = doBanco.nome
+      return proximo()
+    }
+    return res.status(401).json({ erro: 'Chave de API inválida ou revogada.' })
   }
 
   if (config.exigeSenha) {
     const basic = basicDaRequisicao(req)
     if (basic && iguais(basic.usuario, config.usuario) && iguais(basic.senha, config.senha)) {
       req.papel = 'dono'
+      req.podeIa = true
+      req.origem = null // gente no painel não vira etiqueta de origem no card
       return proximo()
     }
     res.set('WWW-Authenticate', 'Basic realm="Gestor de tarefas", charset="UTF-8"')
@@ -144,7 +177,18 @@ export function porteiro(req, res, proximo) {
  * Fica depois do porteiro: primeiro se descobre QUEM é, depois o que pode.
  */
 export function permissoes(req, res, proximo) {
+  // O escopo de IA é independente do papel: dá para ter convidado que roda IA
+  // e dono que não roda.
+  if (CUSTA_IA.test(req.path) && req.papel !== undefined && req.podeIa === false) {
+    return res.status(403).json({
+      erro:
+        'Esta chave não tem escopo de IA. As rotinas de IA gastam a conta da Anthropic do ' +
+        'dono do sistema, então elas são liberadas chave a chave.',
+    })
+  }
+
   if (req.papel !== 'convidado') return proximo()
+
   const { pode, motivo } = convidadoPode(req.method, req.path)
   if (pode) return proximo()
   return res.status(403).json({

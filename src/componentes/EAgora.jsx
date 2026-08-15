@@ -53,14 +53,14 @@ export default function EAgora({ projeto, aoConcluir, aoSair }) {
 
   return (
     <div className="mx-auto flex h-full max-w-xl flex-col items-center justify-center px-6 text-center">
-      {erro && <p className="mb-4 text-sm text-realce">{erro}</p>}
+      {erro && <p className="mb-4 text-sm text-terracota">{erro}</p>}
 
-      {!dados && !erro && <p className="text-sm text-suave">Escolhendo…</p>}
+      {!dados && !erro && <p className="text-sm text-pedra">Escolhendo…</p>}
 
       {dados && !card && (
         <>
           <h2 className="text-2xl font-semibold text-tinta">Nada aberto para hoje.</h2>
-          <p className="mt-2 text-sm text-suave">
+          <p className="mt-2 text-sm text-pedra">
             Ou o dia acabou, ou o que sobrou está esperando outra coisa acontecer.
           </p>
           <Botao className="mt-6" onClick={aoSair}>
@@ -71,7 +71,7 @@ export default function EAgora({ projeto, aoConcluir, aoSair }) {
 
       {card && (
         <>
-          <p className="mb-6 text-xs font-semibold tracking-widest text-suave uppercase">
+          <p className="mb-6 text-xs font-semibold tracking-widest text-pedra uppercase">
             E agora?
           </p>
 
@@ -79,7 +79,7 @@ export default function EAgora({ projeto, aoConcluir, aoSair }) {
             {card.titulo}
           </h2>
 
-          {dados.porque && <p className="mt-4 max-w-md text-sm text-suave">{dados.porque}</p>}
+          {dados.porque && <p className="mt-4 max-w-md text-sm text-pedra">{dados.porque}</p>}
 
           <div className="mt-4 flex flex-wrap items-center justify-center gap-1.5">
             <Etiqueta tom={card.data < new Date().toISOString().slice(0, 10) ? 'realce' : 'neutro'}>
@@ -107,7 +107,7 @@ export default function EAgora({ projeto, aoConcluir, aoSair }) {
             </Botao>
           </div>
 
-          <p className="mt-8 text-xs text-suave">
+          <p className="mt-8 text-xs text-pedra">
             {dados.restantes === 0
               ? 'é a última aberta de hoje'
               : `mais ${dados.restantes} depois desta`}

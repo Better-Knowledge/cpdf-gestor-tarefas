@@ -240,9 +240,11 @@ describe('convidado', () => {
   })
 
   test('convidado não gasta o seu budget de IA', async () => {
+    // O bloqueio agora é por ESCOPO, não por papel: a chave de convidado do
+    // .env nasce sem escopo de IA, e é isso que a mensagem diz.
     const resposta = await comoConvidado('/api/ia/priorizar', 'POST')
     assert.equal(resposta.status, 403)
-    assert.match((await resposta.json()).erro, /rodar IA/)
+    assert.match((await resposta.json()).erro, /escopo de IA/)
   })
 
   test('convidado não reestrutura projeto nem adia tudo em bloco', async () => {
@@ -255,5 +257,31 @@ describe('convidado', () => {
     assert.equal((await comoDono('/api/cards/1', 'DELETE')).status, 200)
     assert.equal((await comoDono('/api/ia/priorizar', 'POST')).status, 200)
     assert.equal((await comoDono('/api/replanejar', 'POST')).status, 200)
+  })
+})
+
+describe('chave do banco, com a tranca do .env desligada', () => {
+  // Regressão: o porteiro devolvia "dono" antes de olhar a chave quando não
+  // havia .env. Chave revogada entrava, e card criado por agente não ganhava
+  // etiqueta de origem.
+  let base, servidor
+  before(async () => {
+    limparCredenciais()
+    ;({ base, servidor } = await subirComPermissoes())
+  })
+  after(() => servidor.close())
+
+  test('sem credencial nenhuma, continua aberto — é o modo de um usuário só', async () => {
+    const resposta = await fetch(`${base}/api/hoje`)
+    assert.equal(resposta.status, 200)
+    assert.equal((await resposta.json()).papel, 'dono')
+  })
+
+  test('chave inventada é recusada, mesmo sem tranca configurada', async () => {
+    // Ausência de tranca é "não exijo credencial", não "aceito qualquer uma".
+    const resposta = await fetch(`${base}/api/hoje`, {
+      headers: { Authorization: 'Bearer gt_nunca-existiu' },
+    })
+    assert.equal(resposta.status, 401)
   })
 })

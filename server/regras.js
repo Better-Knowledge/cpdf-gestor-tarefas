@@ -219,6 +219,16 @@ function buscarEtapa(projetoId, nomeOuId) {
  * Sem normalizar, a base enche de variação da mesma coisa e o filtro por tag
  * para de servir para alguma coisa.
  */
+/** "agente da Maria" → "agente-da-maria". Sem acento, sem espaço, sem símbolo. */
+export function etiquetar(texto) {
+  return String(texto ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
 export function normalizarTag(nome) {
   return String(nome ?? '')
     .trim()
@@ -427,6 +437,7 @@ export function criarCard({
   data = null,
   tags = [],
   prioridade = null,
+  origem = null,
 }) {
   const bd = banco()
   titulo = (titulo ?? '').trim()
@@ -447,8 +458,8 @@ export function criarCard({
     .prepare(
       `INSERT INTO tarefas
          (titulo, descricao, tipo, data, status, prioridade, prioridade_origem,
-          prioridade_sugerida, projeto_id, etapa_id, criado_em, movido_em)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)`,
+          prioridade_sugerida, projeto_id, etapa_id, criado_em, movido_em, origem)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)`,
     )
     .run(
       titulo,
@@ -462,10 +473,19 @@ export function criarCard({
       et.id,
       agora(),
       agora(),
+      origem,
     )
 
-  aplicarTags(Number(lastInsertRowid), tags)
-  return buscarCard(Number(lastInsertRowid))
+  const id = Number(lastInsertRowid)
+
+  // A origem também vira tag. Num quadro compartilhado numa demonstração ao
+  // vivo é o que permite filtrar "só o que o agente da Maria escreveu" com o
+  // mesmo filtro de sempre, sem inventar uma tela nova.
+  //
+  // O nome vira etiqueta: "agente da Maria" → "via-agente-da-maria". Tag com
+  // espaço é ruim de digitar no filtro e pior de passar para o agente.
+  aplicarTags(id, origem ? [...tags, `via-${etiquetar(origem)}`] : tags)
+  return buscarCard(id)
 }
 
 export function atualizarCard(id, campos = {}) {

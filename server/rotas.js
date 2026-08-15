@@ -14,6 +14,7 @@ import { Router } from 'express'
 import { ErroDeRegra, DIAS_ATE_SUGERIR_QUEBRA } from './db.js'
 import * as regras from './regras.js'
 import * as ia from './ia.js'
+import * as chaves from './chaves.js'
 
 export const rotas = Router()
 
@@ -143,7 +144,9 @@ rotas.get(
 
 rotas.post(
   '/cards',
-  rota((req) => regras.criarCard(req.body ?? {})),
+  // A origem vem do porteiro, nunca do corpo da requisição: se viesse do
+  // corpo, qualquer agente poderia se apresentar como outro.
+  rota((req) => regras.criarCard({ ...(req.body ?? {}), origem: req.origem ?? null })),
 )
 
 rotas.get(
@@ -269,7 +272,49 @@ rotas.post(
   rota((req) => ia.aplicarQuebra(req.params.id, req.body?.partes ?? [])),
 )
 
-rotas.get('/ia/disponivel', (req, res) => res.json({ disponivel: ia.temChave() }))
+rotas.get('/ia/disponivel', (req, res) =>
+  res.json({ disponivel: ia.temChave() && req.podeIa !== false }),
+)
+
+// ---------------------------------------------------------------------------
+// As chaves de API — criadas de dentro da aplicação
+// ---------------------------------------------------------------------------
+
+rotas.get(
+  '/chaves',
+  rota(() => chaves.listarChaves()),
+)
+
+rotas.post(
+  '/chaves',
+  rota((req) =>
+    chaves.criarChave({
+      nome: req.body?.nome,
+      papel: req.body?.papel ?? 'convidado',
+      podeIa: req.body?.pode_ia ?? false,
+    }),
+  ),
+)
+
+rotas.patch(
+  '/chaves/:id',
+  rota((req) =>
+    chaves.alterarEscopo(req.params.id, {
+      papel: req.body?.papel,
+      podeIa: req.body?.pode_ia,
+    }),
+  ),
+)
+
+rotas.post(
+  '/chaves/:id/revogar',
+  rota((req) => chaves.revogarChave(req.params.id)),
+)
+
+/** Quem sou eu, na visão do servidor. O painel usa para saber o que mostrar. */
+rotas.get('/eu', (req, res) =>
+  res.json({ papel: req.papel ?? 'dono', pode_ia: req.podeIa !== false, origem: req.origem ?? null }),
+)
 
 // ---------------------------------------------------------------------------
 // Erros

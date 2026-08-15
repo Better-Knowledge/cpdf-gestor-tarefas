@@ -49,14 +49,14 @@ export default function PainelProjeto({ projeto, aoFechar, aoMudar, aoAvisar }) 
       <div className="flex max-h-full w-full max-w-2xl flex-col rounded-2xl border border-borda bg-white shadow-2xl">
         <header className="border-b border-borda px-6 py-4">
           <h2 className="text-lg font-semibold">{projeto.nome}</h2>
-          <p className="text-xs text-suave">
+          <p className="text-xs text-pedra">
             O que você escrever aqui é o que a IA usa para priorizar este projeto.
           </p>
         </header>
 
         <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
           <div>
-            <label className="mb-1 block text-xs font-medium text-suave">
+            <label className="mb-1 block text-xs font-medium text-pedra">
               Contexto — o que faz uma tarefa ser urgente aqui dentro
             </label>
             <textarea
@@ -65,25 +65,25 @@ export default function PainelProjeto({ projeto, aoFechar, aoMudar, aoAvisar }) 
               onChange={(e) => setContexto(e.target.value)}
               placeholder={EXEMPLO_CONTEXTO}
               className="w-full resize-none rounded-lg border border-borda px-3 py-2 font-mono
-                text-[13px] leading-relaxed focus:border-realce focus:outline-none"
+                text-[13px] leading-relaxed focus:border-terracota focus:outline-none"
             />
-            <p className="mt-1.5 text-[11px] text-suave">
+            <p className="mt-1.5 text-[11px] text-pedra">
               Três frases já mudam a priorização de forma visível. Sem contexto o sistema continua
               funcionando — só passa a <strong>sugerir</strong> em vez de decidir.
             </p>
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-medium text-suave">
+            <label className="mb-1 block text-xs font-medium text-pedra">
               Pipeline — as colunas do quadro, na ordem, separadas por vírgula
             </label>
             <input
               value={etapas}
               onChange={(e) => setEtapas(e.target.value)}
               className="w-full rounded-lg border border-borda px-3 py-2 text-sm
-                focus:border-realce focus:outline-none"
+                focus:border-terracota focus:outline-none"
             />
-            <p className="mt-1.5 text-[11px] text-suave">
+            <p className="mt-1.5 text-[11px] text-pedra">
               A última etapa é a de conclusão. Renomear e reordenar não perde card; remover uma
               etapa que tem card dentro é recusado.
             </p>
@@ -133,7 +133,7 @@ export function NovoProjeto({ aoFechar, aoCriar, aoAvisar }) {
       <div className="w-full max-w-md rounded-2xl border border-borda bg-white p-6 shadow-2xl">
         <h2 className="text-lg font-semibold">Novo projeto</h2>
 
-        <label className="mt-4 mb-1 block text-xs font-medium text-suave">Nome</label>
+        <label className="mt-4 mb-1 block text-xs font-medium text-pedra">Nome</label>
         <input
           autoFocus
           value={nome}
@@ -141,19 +141,19 @@ export function NovoProjeto({ aoFechar, aoCriar, aoAvisar }) {
           onKeyDown={(e) => e.key === 'Enter' && nome.trim() && criar()}
           placeholder="Curso, Cliente Dry, Casa…"
           className="w-full rounded-lg border border-borda px-3 py-2 text-sm
-            focus:border-realce focus:outline-none"
+            focus:border-terracota focus:outline-none"
         />
 
-        <label className="mt-4 mb-1 block text-xs font-medium text-suave">
+        <label className="mt-4 mb-1 block text-xs font-medium text-pedra">
           Etapas, na ordem
         </label>
         <input
           value={pipeline}
           onChange={(e) => setPipeline(e.target.value)}
           className="w-full rounded-lg border border-borda px-3 py-2 text-sm
-            focus:border-realce focus:outline-none"
+            focus:border-terracota focus:outline-none"
         />
-        <p className="mt-1.5 text-[11px] text-suave">
+        <p className="mt-1.5 text-[11px] text-pedra">
           Ex.: <em>Ideia, Roteiro, Gravado, Editado, Publicado</em>
         </p>
 

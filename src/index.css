@@ -1,21 +1,44 @@
 @import 'tailwindcss';
+@import './fontes.css';
 
-/*
- * Paleta calma, de propósito.
- *
- * Um gestor de tarefas para quem trava não pode ser uma tela que grita.
- * Atrasado não é vermelho (PRD v2, Parte 5, decisão 4) — é âmbar, e discreto.
- * Vermelho aqui é só para o que o usuário está prestes a apagar.
- */
+/* =========================================================================
+   Design system "Imersão Agentes no Claude" — ink + cream + terracota
+   Portado do CRM da mentoria (Better-Knowledge/crm-mentoria), que é o mesmo
+   sistema já traduzido de slide para aplicação.
+
+   As fontes são locais, não vêm do Google: isto vai ser projetado ao vivo, e
+   o plano B é a instância local — que precisa funcionar sem rede.
+   ========================================================================= */
+
 @theme {
-  --color-papel: #faf8f5;
-  --color-tinta: #1c1917;
-  --color-suave: #78716c;
-  --color-borda: #e7e2dc;
-  --color-realce: #b45309;
-  --color-realce-claro: #fef3c7;
-  --color-calmo: #0f766e;
-  --color-calmo-claro: #ccfbf1;
+  --color-tinta: #1a1918;
+  --color-grafite: #30302e;
+  --color-pedra: #b1ada1;
+  --color-papel: #f4f3ee;
+  --color-papel-fundo: #eceae2;
+  --color-superficie: #ffffff;
+  --color-terracota: #e26546;
+
+  --color-borda: rgba(26, 25, 24, 0.1);
+  --color-borda-forte: rgba(26, 25, 24, 0.16);
+
+  --color-sucesso: #4f7a5a;
+  --color-alerta: #d6a24e;
+  --color-perigo: #c0432d;
+
+  --font-titulo: 'Fira Sans', system-ui, sans-serif;
+  --font-serifa: 'Libre Baskerville', Georgia, serif;
+  --font-corpo: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --radius-carta: 12px;
+  --radius-bloco: 18px;
+
+  --shadow-baixa: 0 1px 2px rgba(26, 25, 24, 0.06), 0 1px 1px rgba(26, 25, 24, 0.04);
+  --shadow-media: 0 4px 14px rgba(26, 25, 24, 0.08), 0 1px 2px rgba(26, 25, 24, 0.04);
+  --shadow-alta: 0 18px 48px rgba(26, 25, 24, 0.16), 0 3px 8px rgba(26, 25, 24, 0.06);
+
+  --ease-suave: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 html,
@@ -27,13 +50,309 @@ body,
 body {
   background: var(--color-papel);
   color: var(--color-tinta);
-  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-family: var(--font-corpo);
   -webkit-font-smoothing: antialiased;
 }
 
-/* O card sendo arrastado não pode capturar o próprio ponteiro. */
-.arrastando {
+/* A grade quente do fundo, com máscara para sumir na parte de baixo. */
+.textura {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(26, 25, 24, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(26, 25, 24, 0.025) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(ellipse 120% 90% at 50% 0%, #000 35%, transparent 100%);
+}
+
+/* --- tipografia de marca ------------------------------------------------ */
+
+.eyebrow {
+  font-family: var(--font-titulo);
+  font-weight: 500;
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-terracota);
+}
+
+.titulo-tela {
+  font-family: var(--font-titulo);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.02;
+  color: var(--color-tinta);
+}
+
+/* A palavra em serifa itálica terracota é a assinatura do sistema. */
+.serifa {
+  font-family: var(--font-serifa);
+  font-style: italic;
+  font-weight: 400;
+  color: var(--color-terracota);
+}
+
+.marca-pill {
+  font-family: var(--font-titulo);
+  font-weight: 400;
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-terracota);
+  border: 1.5px solid var(--color-terracota);
+  border-radius: 999px;
+  padding: 5px 13px 4px;
+  white-space: nowrap;
+}
+
+/* --- controles ---------------------------------------------------------- */
+
+.aba {
+  font-family: var(--font-titulo);
+  font-weight: 500;
+  font-size: 14px;
+  background: transparent;
+  color: var(--color-grafite);
+  border: none;
+  padding: 7px 15px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.18s var(--ease-suave);
+}
+.aba:hover {
+  color: var(--color-tinta);
+  background: var(--color-papel-fundo);
+}
+.aba.ativa {
+  color: var(--color-papel);
+  background: var(--color-tinta);
+}
+
+.btn {
+  font-family: var(--font-titulo);
+  font-weight: 500;
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--color-borda-forte);
+  background: var(--color-superficie);
+  color: var(--color-tinta);
+  padding: 8px 15px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.18s var(--ease-suave);
+}
+.btn:hover:not(:disabled) {
+  border-color: var(--color-tinta);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-baixa);
+}
+.btn:disabled {
   opacity: 0.4;
+  cursor: not-allowed;
+}
+.btn.primario {
+  background: var(--color-terracota);
+  border-color: var(--color-terracota);
+  color: #fff;
+}
+.btn.primario:hover:not(:disabled) {
+  background: oklch(63% 0.16 35);
+  box-shadow: var(--shadow-media);
+}
+.btn.escuro {
+  background: var(--color-tinta);
+  border-color: var(--color-tinta);
+  color: var(--color-papel);
+}
+.btn.fantasma {
+  background: transparent;
+  border-color: transparent;
+  color: var(--color-grafite);
+}
+.btn.fantasma:hover:not(:disabled) {
+  background: var(--color-papel-fundo);
+  border-color: transparent;
+  transform: none;
+  box-shadow: none;
+}
+.btn.perigo {
+  color: var(--color-perigo);
+  border-color: rgba(192, 67, 45, 0.35);
+  background: transparent;
+}
+.btn.perigo:hover:not(:disabled) {
+  background: rgba(192, 67, 45, 0.08);
+  border-color: var(--color-perigo);
+}
+.btn.miudo {
+  font-size: 12px;
+  padding: 4px 10px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-titulo);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--color-borda-forte);
+  color: var(--color-grafite);
+  white-space: nowrap;
+}
+.chip.accent {
+  color: var(--color-terracota);
+  border-color: var(--color-terracota);
+  background: rgba(226, 101, 70, 0.06);
+}
+.chip.calmo {
+  color: var(--color-sucesso);
+  border-color: rgba(79, 122, 90, 0.35);
+  background: rgba(79, 122, 90, 0.08);
+}
+
+.campo {
+  width: 100%;
+  padding: 10px 13px;
+  background: var(--color-papel);
+  border: 1px solid var(--color-borda-forte);
+  border-radius: 8px;
+  color: var(--color-tinta);
+  font-size: 14px;
+  font-family: var(--font-corpo);
+  transition: border-color 0.16s var(--ease-suave);
+}
+.campo:focus {
+  outline: none;
+  border-color: var(--color-terracota);
+  box-shadow: 0 0 0 3px rgba(226, 101, 70, 0.12);
+}
+.campo::placeholder {
+  color: var(--color-pedra);
+}
+
+.rotulo {
+  display: block;
+  font-family: var(--font-titulo);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-pedra);
+  margin-bottom: 5px;
+}
+
+/* --- quadro ------------------------------------------------------------- */
+
+.coluna {
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid var(--color-borda);
+  border-radius: var(--radius-bloco);
+  padding: 12px;
+  transition: all 0.18s var(--ease-suave);
+}
+.coluna.sobre {
+  border-color: var(--color-terracota);
+  background: rgba(226, 101, 70, 0.06);
+}
+.coluna-titulo {
+  font-family: var(--font-titulo);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-grafite);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 6px;
+  margin-bottom: 10px;
+}
+.coluna-titulo .conta {
+  font-family: var(--font-serifa);
+  font-style: italic;
+  color: var(--color-terracota);
+  font-size: 17px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.cartao {
+  background: var(--color-superficie);
+  border: 1px solid var(--color-borda);
+  border-radius: var(--radius-carta);
+  padding: 13px 15px;
+  cursor: grab;
+  box-shadow: var(--shadow-baixa);
+  transition: all 0.16s var(--ease-suave);
+  text-align: left;
+  width: 100%;
+}
+.cartao:hover {
+  border-color: var(--color-borda-forte);
+  box-shadow: var(--shadow-media);
+  transform: translateY(-2px);
+}
+.cartao:active {
+  cursor: grabbing;
+}
+.cartao.arrastando {
+  opacity: 0.35;
+  transform: rotate(1.5deg);
+}
+.cartao.do-dia {
+  border-color: var(--color-terracota);
+  box-shadow: 0 0 0 3px rgba(226, 101, 70, 0.12);
+}
+
+/* --- modal -------------------------------------------------------------- */
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 25, 24, 0.45);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 48px 16px;
+  overflow-y: auto;
+  z-index: 60;
+  animation: surgir 0.2s var(--ease-suave);
+}
+.modal-conteudo {
+  background: var(--color-superficie);
+  border: 1px solid var(--color-borda);
+  border-radius: var(--radius-bloco);
+  width: 100%;
+  box-shadow: var(--shadow-alta);
+  animation: pipocar 0.28s var(--ease-suave);
+}
+
+@keyframes surgir {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes pipocar {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

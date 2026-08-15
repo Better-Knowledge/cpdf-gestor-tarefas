@@ -42,7 +42,7 @@ export default function DetalheCard({ card, projeto, aoFechar, aoMudar, aoAvisar
   return (
     <aside className="fixed inset-y-0 right-0 z-30 flex w-full max-w-md flex-col border-l border-borda bg-white shadow-2xl">
       <header className="flex items-center justify-between border-b border-borda px-5 py-3">
-        <span className="text-xs text-suave">
+        <span className="text-xs text-pedra">
           #{card.id} · {card.projeto} · {card.etapa}
         </span>
         <Botao variante="fantasma" onClick={aoFechar}>
@@ -52,29 +52,29 @@ export default function DetalheCard({ card, projeto, aoFechar, aoMudar, aoAvisar
 
       <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5">
         <div>
-          <label className="mb-1 block text-xs font-medium text-suave">Título</label>
+          <label className="mb-1 block text-xs font-medium text-pedra">Título</label>
           <input
             value={titulo}
             onChange={(e) => setTitulo(e.target.value)}
             className="w-full rounded-lg border border-borda px-3 py-2 text-sm
-              focus:border-realce focus:outline-none"
+              focus:border-terracota focus:outline-none"
           />
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-medium text-suave">Descrição</label>
+          <label className="mb-1 block text-xs font-medium text-pedra">Descrição</label>
           <textarea
             rows={3}
             value={descricao}
             onChange={(e) => setDescricao(e.target.value)}
             placeholder="opcional"
             className="w-full resize-none rounded-lg border border-borda px-3 py-2 text-sm
-              focus:border-realce focus:outline-none"
+              focus:border-terracota focus:outline-none"
           />
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-medium text-suave">
+          <label className="mb-1 block text-xs font-medium text-pedra">
             Tags <span className="font-normal">— separadas por vírgula</span>
           </label>
           <input
@@ -82,12 +82,12 @@ export default function DetalheCard({ card, projeto, aoFechar, aoMudar, aoAvisar
             onChange={(e) => setTags(e.target.value)}
             placeholder="ligacao, 5min, exige-foco"
             className="w-full rounded-lg border border-borda px-3 py-2 text-sm
-              focus:border-realce focus:outline-none"
+              focus:border-terracota focus:outline-none"
           />
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-medium text-suave">Prioridade</label>
+          <label className="mb-1 block text-xs font-medium text-pedra">Prioridade</label>
           <div className="flex gap-1.5">
             {['alta', 'media', 'baixa'].map((nivel) => (
               <Botao
@@ -100,7 +100,7 @@ export default function DetalheCard({ card, projeto, aoFechar, aoMudar, aoAvisar
               </Botao>
             ))}
           </div>
-          <p className="mt-1.5 text-[11px] text-suave">
+          <p className="mt-1.5 text-[11px] text-pedra">
             {card.prioridade_origem === 'usuario'
               ? 'Você decidiu esta prioridade. A IA não mexe mais nela.'
               : card.prioridade_sugerida
@@ -108,12 +108,12 @@ export default function DetalheCard({ card, projeto, aoFechar, aoMudar, aoAvisar
                 : 'Definida pela IA contra o contexto do projeto.'}
           </p>
           {card.justificativa && (
-            <p className="mt-1 text-[11px] text-suave italic">“{card.justificativa}”</p>
+            <p className="mt-1 text-[11px] text-pedra italic">“{card.justificativa}”</p>
           )}
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-medium text-suave">Data</label>
+          <label className="mb-1 block text-xs font-medium text-pedra">Data</label>
           <div className="flex flex-wrap gap-1.5">
             {['hoje', 'amanha', 'sexta', '7d'].map((quando) => (
               <Botao
@@ -125,12 +125,12 @@ export default function DetalheCard({ card, projeto, aoFechar, aoMudar, aoAvisar
               </Botao>
             ))}
           </div>
-          <p className="mt-1.5 text-[11px] text-suave">está para {formatarData(card.data)}</p>
+          <p className="mt-1.5 text-[11px] text-pedra">está para {formatarData(card.data)}</p>
         </div>
 
         {card.dependencias.length > 0 && (
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-suave">Depende de</label>
+            <label className="mb-1.5 block text-xs font-medium text-pedra">Depende de</label>
             <ul className="space-y-1.5">
               {card.dependencias.map((dep) => (
                 <li
@@ -179,14 +179,14 @@ export default function DetalheCard({ card, projeto, aoFechar, aoMudar, aoAvisar
         )}
 
         {card.aguardando.length > 0 && (
-          <p className="rounded-lg bg-stone-100 px-3 py-2 text-xs text-suave">
+          <p className="rounded-lg bg-papel-fundo px-3 py-2 text-xs text-pedra">
             Este card está aguardando: {card.aguardando.map((a) => a.titulo).join(', ')}.
           </p>
         )}
 
         {projeto && (
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-suave">Mover para</label>
+            <label className="mb-1.5 block text-xs font-medium text-pedra">Mover para</label>
             <div className="flex flex-wrap gap-1.5">
               {projeto.etapas.map((etapa) => (
                 <Botao

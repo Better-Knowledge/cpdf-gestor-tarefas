@@ -4,6 +4,7 @@ import Quadro from './componentes/Quadro.jsx'
 import EAgora from './componentes/EAgora.jsx'
 import DetalheCard from './componentes/DetalheCard.jsx'
 import PainelProjeto, { NovoProjeto } from './componentes/PainelProjeto.jsx'
+import Chaves from './componentes/Chaves.jsx'
 import { Botao, Carregando, Etiqueta } from './componentes/Pecas.jsx'
 
 const hojeISO = () => {
@@ -31,6 +32,8 @@ export default function App() {
   const [ordem, setOrdem] = useState(null)
   const [quebras, setQuebras] = useState(null)
   const [oferta, setOferta] = useState(null)
+  const [vendoChaves, setVendoChaves] = useState(false)
+  const [eu, setEu] = useState(null)
 
   const projeto = projetos?.find((p) => p.nome === projetoNome) ?? null
 
@@ -53,11 +56,12 @@ export default function App() {
   }, [projetoNome, filtros, cardAberto])
 
   useEffect(() => {
-    Promise.all([api.projetos(), api.iaDisponivel()])
-      .then(([lista, ia]) => {
+    Promise.all([api.projetos(), api.iaDisponivel(), api.eu()])
+      .then(([lista, ia, quemSou]) => {
         setProjetos(lista)
         setProjetoNome((atual) => atual ?? lista[0]?.nome ?? null)
         setIaDisponivel(ia.disponivel)
+        setEu(quemSou)
       })
       .catch((erro) => avisar({ tom: 'erro', texto: erro.message }))
   }, [avisar])
@@ -153,29 +157,27 @@ export default function App() {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="border-b border-borda bg-white/80 backdrop-blur">
-        <div className="flex flex-wrap items-center gap-3 px-5 py-3">
-          <h1 className="text-sm font-semibold tracking-tight">Gestor de tarefas</h1>
+      <div className="textura" />
+      <header className="sticky top-0 z-20 border-b border-borda bg-papel/85 backdrop-blur-md">
+        <div className="flex flex-wrap items-center gap-3 px-6 py-3">
+          <span className="flex items-center gap-3">
+            <span className="marca-pill">Gestor</span>
+            <h1 className="font-titulo text-lg font-semibold tracking-tight">
+              de <span className="serifa">tarefas</span>
+            </h1>
+          </span>
 
           <nav className="flex flex-wrap items-center gap-1">
             {projetos.map((p) => (
               <button
                 key={p.id}
                 onClick={() => setProjetoNome(p.nome)}
-                className={`rounded-lg px-2.5 py-1 text-sm transition-colors ${
-                  p.nome === projetoNome
-                    ? 'bg-tinta font-medium text-papel'
-                    : 'text-suave hover:bg-stone-100'
-                }`}
+                className={`aba ${p.nome === projetoNome ? 'ativa' : ''}`}
               >
                 {p.nome}
               </button>
             ))}
-            <button
-              onClick={() => setCriandoProjeto(true)}
-              title="novo projeto"
-              className="rounded-lg px-2 py-1 text-sm text-suave hover:bg-stone-100"
-            >
+            <button onClick={() => setCriandoProjeto(true)} title="novo projeto" className="aba">
               +
             </button>
           </nav>
@@ -183,8 +185,13 @@ export default function App() {
           <div className="ml-auto flex flex-wrap items-center gap-2">
             <Botao variante="fantasma" onClick={() => setEditandoProjeto(true)}>
               contexto
-              {!projeto?.contexto && <span className="ml-1 text-realce">•</span>}
+              {!projeto?.contexto && <span className="ml-1 text-terracota">•</span>}
             </Botao>
+            {eu?.papel === 'dono' && (
+              <Botao variante="fantasma" onClick={() => setVendoChaves(true)}>
+                chaves
+              </Botao>
+            )}
             <Botao variante="forte" onClick={() => setModo(modo === 'agora' ? 'quadro' : 'agora')}>
               {modo === 'agora' ? 'ver o quadro' : 'E agora?'}
             </Botao>
@@ -205,7 +212,7 @@ export default function App() {
                   className={`px-2.5 py-1 text-xs transition-colors ${
                     filtros.status === valor
                       ? 'bg-tinta text-papel'
-                      : 'bg-white text-suave hover:bg-stone-50'
+                      : 'bg-white text-pedra hover:bg-papel-fundo'
                   }`}
                 >
                   {rotulo}
@@ -216,7 +223,7 @@ export default function App() {
             <select
               value={filtros.tag}
               onChange={(e) => setFiltros((f) => ({ ...f, tag: e.target.value }))}
-              className="rounded-lg border border-borda bg-white px-2 py-1 text-xs text-suave"
+              className="rounded-lg border border-borda bg-white px-2 py-1 text-xs text-pedra"
             >
               <option value="">todas as tags</option>
               {tags.map((t) => (
@@ -231,7 +238,7 @@ export default function App() {
               onChange={(e) => setFiltros((f) => ({ ...f, busca: e.target.value }))}
               placeholder="procurar…"
               className="w-40 rounded-lg border border-borda px-2 py-1 text-xs
-                focus:border-realce focus:outline-none"
+                focus:border-terracota focus:outline-none"
             />
 
             {iaDisponivel && (
@@ -282,7 +289,7 @@ export default function App() {
       </header>
 
       {atrasados.length > 0 && modo === 'quadro' && (
-        <div className="flex flex-wrap items-center gap-3 border-b border-borda bg-realce-claro/50 px-5 py-2">
+        <div className="flex flex-wrap items-center gap-3 border-b border-borda bg-terracota/8 px-5 py-2">
           <p className="text-xs text-tinta">
             <strong>{atrasados.length}</strong> card(s) passaram da data.
           </p>
@@ -318,8 +325,7 @@ export default function App() {
             name="titulo"
             autoComplete="off"
             placeholder={`Escreva uma frase e dê Enter — vai para "${projetoNome}"`}
-            className="w-full rounded-xl border border-borda bg-white px-4 py-2.5 text-sm
-              placeholder:text-suave focus:border-realce focus:outline-none"
+            className="campo bg-superficie px-4 py-3 text-[15px] shadow-baixa"
           />
         </form>
       )}
@@ -392,6 +398,8 @@ export default function App() {
         />
       )}
 
+      {vendoChaves && <Chaves aoFechar={() => setVendoChaves(false)} aoAvisar={avisar} />}
+
       {ordem && <OrdemDoDia ordem={ordem} aoFechar={() => setOrdem(null)} />}
 
       {quebras && (
@@ -415,9 +423,9 @@ export default function App() {
             key={aviso.id}
             className={`pointer-events-auto rounded-xl border px-4 py-3 text-sm shadow-lg ${
               aviso.tom === 'erro'
-                ? 'border-realce/30 bg-white text-realce'
+                ? 'border-terracota/30 bg-white text-terracota'
                 : aviso.tom === 'destravou'
-                  ? 'border-calmo/30 bg-calmo-claro text-calmo'
+                  ? 'border-sucesso/30 bg-sucesso/10 text-sucesso'
                   : 'border-borda bg-white text-tinta'
             }`}
           >
@@ -469,14 +477,14 @@ function OfertaDeContexto({ oferta, projeto, iaDisponivel, aoFechar, aoSalvar, a
         <h2 className="text-lg font-semibold">
           Você já confirmou {oferta.confirmacoes} prioridades em “{projeto.nome}”
         </h2>
-        <p className="mt-1 text-sm text-suave">
+        <p className="mt-1 text-sm text-pedra">
           Existe uma regra aí, e ela só está na sua cabeça. Se ela estiver escrita, eu paro de
           perguntar e passo a priorizar sozinho.
         </p>
 
         <ul className="mt-4 space-y-1">
           {oferta.exemplos.slice(0, 3).map((e) => (
-            <li key={e.titulo} className="rounded-lg bg-stone-100 px-3 py-1.5 text-xs">
+            <li key={e.titulo} className="rounded-lg bg-papel-fundo px-3 py-1.5 text-xs">
               <strong>{e.titulo}</strong> → {e.prioridade}
             </li>
           ))}
@@ -488,7 +496,7 @@ function OfertaDeContexto({ oferta, projeto, iaDisponivel, aoFechar, aoSalvar, a
           onChange={(evento) => setTexto(evento.target.value)}
           placeholder="O que faz uma tarefa ser urgente neste projeto?"
           className="mt-4 w-full resize-none rounded-lg border border-borda px-3 py-2 font-mono
-            text-[13px] leading-relaxed focus:border-realce focus:outline-none"
+            text-[13px] leading-relaxed focus:border-terracota focus:outline-none"
         />
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
@@ -519,16 +527,16 @@ function OrdemDoDia({ ordem, aoFechar }) {
       <div className="flex max-h-full w-full max-w-lg flex-col rounded-2xl border border-borda bg-white shadow-2xl">
         <header className="border-b border-borda px-6 py-4">
           <h2 className="text-lg font-semibold">A ordem sugerida</h2>
-          {ordem.recado && <p className="mt-0.5 text-xs text-suave">{ordem.recado}</p>}
+          {ordem.recado && <p className="mt-0.5 text-xs text-pedra">{ordem.recado}</p>}
         </header>
         <div className="flex-1 space-y-4 overflow-y-auto px-6 py-5">
           {ordem.blocos.map((bloco, indice) => (
             <section key={bloco.nome}>
               <h3 className="flex items-center gap-2 text-sm font-medium">
-                <span className="text-suave">{indice + 1}.</span>
+                <span className="text-pedra">{indice + 1}.</span>
                 {bloco.nome}
               </h3>
-              <p className="mt-0.5 mb-2 text-[11px] text-suave">{bloco.porque}</p>
+              <p className="mt-0.5 mb-2 text-[11px] text-pedra">{bloco.porque}</p>
               <ul className="space-y-1">
                 {bloco.cards.map((card) => (
                   <li key={card.id} className="rounded-lg border border-borda px-3 py-1.5 text-sm">
@@ -538,7 +546,7 @@ function OrdemDoDia({ ordem, aoFechar }) {
               </ul>
             </section>
           ))}
-          {!ordem.blocos.length && <p className="text-sm text-suave">Nada aberto para hoje.</p>}
+          {!ordem.blocos.length && <p className="text-sm text-pedra">Nada aberto para hoje.</p>}
         </div>
         <footer className="flex justify-end border-t border-borda px-6 py-3">
           <Botao onClick={aoFechar}>fechar</Botao>
@@ -554,7 +562,7 @@ function Quebras({ dados, aoFechar, aoAplicar }) {
       <div className="flex max-h-full w-full max-w-lg flex-col rounded-2xl border border-borda bg-white shadow-2xl">
         <header className="border-b border-borda px-6 py-4">
           <h2 className="text-lg font-semibold">Talvez estes estejam grandes demais</h2>
-          <p className="mt-0.5 text-xs text-suave">
+          <p className="mt-0.5 text-xs text-pedra">
             Card parado há dias quase nunca é preguiça — quase sempre é uma tarefa grande disfarçada
             de tarefa.
           </p>
@@ -565,7 +573,7 @@ function Quebras({ dados, aoFechar, aoAplicar }) {
               <h3 className="text-sm font-medium">{card.titulo}</h3>
               <ul className="mt-2 space-y-1">
                 {partes.map((parte) => (
-                  <li key={parte} className="rounded-lg bg-stone-100 px-3 py-1.5 text-sm">
+                  <li key={parte} className="rounded-lg bg-papel-fundo px-3 py-1.5 text-sm">
                     {parte}
                   </li>
                 ))}
