@@ -12,7 +12,7 @@ import express from 'express'
 
 import { carregarEnv, RAIZ } from './env.js'
 import { rotas, tratarErros } from './rotas.js'
-import { porteiro, resumoDaTranca } from './auth.js'
+import { porteiro, permissoes, limitarTaxa, resumoDaTranca } from './auth.js'
 import { banco, CAMINHO_BANCO } from './db.js'
 
 const DIST = join(RAIZ, 'dist')
@@ -28,13 +28,20 @@ const HOST = process.env.HOST?.trim() || '127.0.0.1'
 
 const app = express()
 app.disable('x-powered-by')
-app.use(express.json())
+
+// Atrás de um proxy reverso (Caddy, nginx) o IP real vem no X-Forwarded-For.
+// Sem isto, o limite de taxa contaria todo mundo como o mesmo visitante.
+if (process.env.ATRAS_DE_PROXY === 'true') app.set('trust proxy', 1)
+
+// Corpo grande não tem uso legítimo aqui, e limitar é uma linha.
+app.use(express.json({ limit: '100kb' }))
 
 // O porteiro vem antes de tudo, inclusive do painel: sem isso o HTML e o
 // bundle seriam servidos para qualquer um, e só a API estaria trancada.
 app.use(porteiro)
+app.use(limitarTaxa)
 
-app.use('/api', rotas)
+app.use('/api', permissoes, rotas)
 
 if (existsSync(DIST)) {
   app.use(express.static(DIST))

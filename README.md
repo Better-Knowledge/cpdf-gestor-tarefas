@@ -103,6 +103,93 @@ código dela seriam servidos para qualquer um.
 > alcancem o sistema — e preencha senha e chave antes. Se subir exposto e sem
 > senha, o servidor avisa em letras grandes no terminal.
 
+### A chave de convidado
+
+Serve para um cenário só: **demonstração ao vivo**, com agentes de outras
+pessoas escrevendo no mesmo quadro projetado.
+
+```bash
+npm run chave     # gere uma segunda, e ponha em API_KEY_CONVIDADO
+```
+
+| | Dono (`API_KEY`) | Convidado (`API_KEY_CONVIDADO`) |
+|---|---|---|
+| Ler tudo | sim | sim |
+| Registrar, concluir, adiar, mover | sim | sim |
+| Apagar card · quebrar card | sim | **não** |
+| Criar e alterar projeto e pipeline | sim | **não** |
+| Replanejar em bloco | sim | **não** |
+| Rodar as rotinas de IA | sim | **não** |
+| Limite de chamadas por minuto | 600 | 60 |
+
+As três proibições têm motivos diferentes, e vale saber qual é qual: apagar é
+para um agente confuso não sumir com o card que você ia mostrar; mexer em
+projeto é para ninguém reestruturar o quadro no meio da apresentação; e rodar
+IA é porque **as rotinas de IA correm na sua chave da Anthropic** — quarenta
+agentes chamando `priorizar` é o seu budget acabando no meio do bloco.
+
+Você aperta os botões de IA no telão. Eles veem o quadro reordenar. É melhor
+teatro, e sai mais barato.
+
+---
+
+## Pôr numa VPS para uma demonstração
+
+Cenário: você projeta o painel e os agentes da plateia escrevem nele.
+
+**1. HTTPS não é opcional.** HTTP Basic manda usuário e senha em base64, que é
+texto claro. Sem TLS, sua senha e as chaves viajam abertas em qualquer rede
+entre você e a VPS. Com [Caddy](https://caddyserver.com) o certificado é
+automático:
+
+```
+gestor.seudominio.com.br {
+    reverse_proxy 127.0.0.1:3000
+}
+```
+
+**2. O app continua ouvindo só em localhost.** Quem fala com a internet é o
+Caddy. Não mude o `HOST` — mude só isto no `.env`:
+
+```
+ATRAS_DE_PROXY=true
+```
+
+Sem essa linha o limite de taxa conta todo mundo como o mesmo visitante, porque
+todas as chamadas chegam com o IP do proxy.
+
+**3. O `.env` da VPS precisa de tudo:**
+
+```
+AUTH_USUARIO=admin
+AUTH_SENHA=<uma senha que não seja a do exemplo>
+API_KEY=<npm run chave>
+API_KEY_CONVIDADO=<npm run chave, outra vez>
+ANTHROPIC_API_KEY=<a sua, com budget definido no console>
+ATRAS_DE_PROXY=true
+```
+
+**Troque `cpdf2026`.** Ela está publicada neste README.
+
+**4. Ponha um teto de gasto** no console da Anthropic, na chave que for para a
+VPS. O convidado não roda IA, mas teto é barato e engano acontece.
+
+**5. Entre um bloco e outro**, o quadro volta ao estado conhecido:
+
+```bash
+npm run demo -- --sim
+```
+
+Isso apaga tudo e remonta o quadro de demonstração, com as dependências prontas
+— conclua *"comprar o microfone novo"* e duas gravações acendem na tela.
+
+**6. Quando a demonstração acabar**, apague as duas linhas de chave do `.env` e
+reinicie. Revogar é isso: a chave deixa de existir.
+
+> **Leve um plano B.** Deixe a sua instância local rodando em paralelo. Se a
+> VPS ou a rede der problema no meio, você compartilha a tela e segue — sem
+> pausa para depurar na frente de todo mundo.
+
 ### Deixando o resumo chegar às 18h
 
 O sistema não acorda sozinho: quem acorda é o seu computador.

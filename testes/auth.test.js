@@ -10,7 +10,13 @@ import { test, before, after, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import express from 'express'
 
-const { porteiro, configuracao } = await import('../server/auth.js')
+const { porteiro, permissoes, configuracao } = await import('../server/auth.js')
+
+async function montar(app) {
+  const servidor = app.listen(0, '127.0.0.1')
+  await new Promise((pronto) => servidor.once('listening', pronto))
+  return { base: `http://127.0.0.1:${servidor.address().port}`, servidor }
+}
 
 /** Sobe um servidor mínimo com o porteiro na frente e devolve a base da URL. */
 async function subir() {
@@ -18,9 +24,17 @@ async function subir() {
   app.use(porteiro)
   app.get('/api/hoje', (req, res) => res.json({ ok: true }))
   app.get('/', (req, res) => res.send('painel'))
-  const servidor = app.listen(0, '127.0.0.1')
-  await new Promise((pronto) => servidor.once('listening', pronto))
-  return { base: `http://127.0.0.1:${servidor.address().port}`, servidor }
+  return montar(app)
+}
+
+/** Igual, mas com a camada de permissões — é onde o convidado é barrado. */
+async function subirComPermissoes() {
+  const app = express()
+  app.use(porteiro)
+  // Espelha o formato real: as permissões são montadas no prefixo /api, então
+  // o `req.path` que elas veem já vem sem ele.
+  app.use('/api', permissoes, (req, res) => res.json({ ok: true, papel: req.papel }))
+  return montar(app)
 }
 
 const basic = (usuario, senha) =>
@@ -30,6 +44,7 @@ function limparCredenciais() {
   delete process.env.AUTH_USUARIO
   delete process.env.AUTH_SENHA
   delete process.env.API_KEY
+  delete process.env.API_KEY_CONVIDADO
 }
 
 describe('sem nada configurado', () => {
@@ -190,5 +205,55 @@ describe('só chave, sem senha', () => {
     const semNada = await fetch(`${base}/api/hoje`)
     assert.equal(semNada.status, 401)
     assert.match((await semNada.json()).erro, /chave de API/i)
+  })
+})
+
+describe('convidado', () => {
+  let base, servidor
+  before(async () => {
+    limparCredenciais()
+    process.env.API_KEY = 'gt_dono'
+    process.env.API_KEY_CONVIDADO = 'gt_convidado'
+    ;({ base, servidor } = await subirComPermissoes())
+  })
+  after(() => {
+    servidor.close()
+    limparCredenciais()
+  })
+
+  const comoConvidado = (caminho, metodo = 'GET') =>
+    fetch(`${base}${caminho}`, { method: metodo, headers: { Authorization: 'Bearer gt_convidado' } })
+  const comoDono = (caminho, metodo = 'GET') =>
+    fetch(`${base}${caminho}`, { method: metodo, headers: { Authorization: 'Bearer gt_dono' } })
+
+  test('convidado lê e registra — é o que faz o card aparecer no telão', async () => {
+    assert.equal((await comoConvidado('/api/hoje')).status, 200)
+    assert.equal((await comoConvidado('/api/cards', 'POST')).status, 200)
+    assert.equal((await comoConvidado('/api/cards/1/concluir', 'POST')).status, 200)
+    assert.equal((await comoConvidado('/api/cards/1/adiar', 'POST')).status, 200)
+    assert.equal((await comoConvidado('/api/cards/1/mover', 'POST')).status, 200)
+  })
+
+  test('convidado não apaga nada', async () => {
+    assert.equal((await comoConvidado('/api/cards/1', 'DELETE')).status, 403)
+    assert.equal((await comoConvidado('/api/cards/1/quebrar', 'POST')).status, 403)
+  })
+
+  test('convidado não gasta o seu budget de IA', async () => {
+    const resposta = await comoConvidado('/api/ia/priorizar', 'POST')
+    assert.equal(resposta.status, 403)
+    assert.match((await resposta.json()).erro, /rodar IA/)
+  })
+
+  test('convidado não reestrutura projeto nem adia tudo em bloco', async () => {
+    assert.equal((await comoConvidado('/api/projetos', 'POST')).status, 403)
+    assert.equal((await comoConvidado('/api/projetos/1', 'PATCH')).status, 403)
+    assert.equal((await comoConvidado('/api/replanejar', 'POST')).status, 403)
+  })
+
+  test('o dono continua podendo tudo', async () => {
+    assert.equal((await comoDono('/api/cards/1', 'DELETE')).status, 200)
+    assert.equal((await comoDono('/api/ia/priorizar', 'POST')).status, 200)
+    assert.equal((await comoDono('/api/replanejar', 'POST')).status, 200)
   })
 })
