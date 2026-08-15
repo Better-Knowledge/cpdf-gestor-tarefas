@@ -186,6 +186,33 @@ rotas.post(
   rota((req) => regras.marcarHoje(req.params.id, req.body?.valor ?? true)),
 )
 
+// A prioridade sugerida vira decisão — ou some. Nos dois casos ela passa a ser
+// do usuário, e a IA não encosta mais nela.
+rotas.post(
+  '/cards/:id/prioridade/aceitar',
+  rota((req) => regras.aceitarSugestao(req.params.id)),
+)
+
+rotas.post(
+  '/cards/:id/prioridade/recusar',
+  rota((req) => regras.recusarSugestao(req.params.id)),
+)
+
+rotas.get(
+  '/projetos/:id/oferta-contexto',
+  rota((req) => regras.ofertaDeContexto(regras.buscarProjeto(req.params.id).id)),
+)
+
+rotas.post(
+  '/projetos/:id/oferta-contexto/dispensar',
+  rota((req) => regras.dispensarOferta(req.params.id)),
+)
+
+rotas.post(
+  '/ia/escrever-contexto',
+  rota((req) => ia.escreverContexto({ projeto: req.body?.projeto })),
+)
+
 // ---------------------------------------------------------------------------
 // Dependências
 // ---------------------------------------------------------------------------

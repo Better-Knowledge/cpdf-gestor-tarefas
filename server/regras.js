@@ -597,6 +597,81 @@ export function excluirCard(id) {
 }
 
 /**
+ * Aceita a prioridade que a IA sugeriu.
+ *
+ * Aceitar carimba a prioridade como do USUÁRIO: a partir daqui nenhuma rodada
+ * de IA encosta nela. É o que faz a sugestão virar decisão — e é a diferença
+ * entre um sistema que pergunta e um que insiste.
+ */
+export function aceitarSugestao(id) {
+  const card = buscarCardCru(id)
+  if (!card.prioridade_sugerida) {
+    throw new ErroDeRegra('Este card não tem prioridade sugerida para aceitar.')
+  }
+  banco()
+    .prepare(
+      "UPDATE tarefas SET prioridade_origem = 'usuario', prioridade_sugerida = 0 WHERE id = ?",
+    )
+    .run(card.id)
+  registrarConfirmacao(card.projeto_id)
+  return buscarCard(card.id)
+}
+
+/** Recusa a sugestão: volta para média e tira o pedido de confirmação da tela. */
+export function recusarSugestao(id) {
+  const card = buscarCardCru(id)
+  banco()
+    .prepare(
+      "UPDATE tarefas SET prioridade = 'media', justificativa = NULL," +
+        " prioridade_origem = 'usuario', prioridade_sugerida = 0 WHERE id = ?",
+    )
+    .run(card.id)
+  return buscarCard(card.id)
+}
+
+/**
+ * Conta as sugestões aceitas por projeto.
+ *
+ * Ao chegar em três, o sistema passa a oferecer transformar o padrão observado
+ * em contexto escrito (PRD v2, 4.1) — em vez de continuar adivinhando para
+ * sempre, ele pede para a pessoa escrever a regra uma vez.
+ */
+const CONFIRMACOES_ATE_OFERECER = 3
+const confirmacoesPorProjeto = new Map()
+
+function registrarConfirmacao(projetoId) {
+  confirmacoesPorProjeto.set(projetoId, (confirmacoesPorProjeto.get(projetoId) ?? 0) + 1)
+}
+
+/**
+ * O projeto já acumulou confirmações suficientes e ainda não tem contexto?
+ *
+ * Devolve o que a tela precisa para fazer a oferta, ou null. A contagem é da
+ * sessão: se o servidor reinicia, a oferta espera as próximas três — de
+ * propósito, para não perseguir a pessoa entre um dia e outro.
+ */
+export function ofertaDeContexto(projetoId) {
+  const projeto = buscarProjeto(projetoId, { obrigatorio: false })
+  if (!projeto || projeto.contexto?.trim()) return null
+  const confirmacoes = confirmacoesPorProjeto.get(projeto.id) ?? 0
+  if (confirmacoes < CONFIRMACOES_ATE_OFERECER) return null
+
+  const aceitas = listarCards({ projeto: projeto.id, status: 'aberto' })
+    .filter((c) => c.prioridade_origem === 'usuario' && c.justificativa)
+    .slice(0, 6)
+    .map((c) => ({ titulo: c.titulo, prioridade: c.prioridade, porque: c.justificativa }))
+
+  return { projeto: projeto.nome, confirmacoes, exemplos: aceitas }
+}
+
+/** Zera a contagem — chamado quando a oferta é aceita ou dispensada. */
+export function dispensarOferta(projetoId) {
+  const projeto = buscarProjeto(projetoId)
+  confirmacoesPorProjeto.set(projeto.id, 0)
+  return { projeto: projeto.nome }
+}
+
+/**
  * Marca o card como "hoje de verdade". No máximo três — o dia tem teto, e é
  * ele que faz o dia terminar inteiro em vez de terminar em dívida.
  */

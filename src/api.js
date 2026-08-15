@@ -54,6 +54,12 @@ export const api = {
   removerDependencia: (id, outroId) =>
     pedir(`/cards/${id}/dependencias/${outroId}`, { method: 'DELETE' }),
 
+  aceitarSugestao: (id) => pedir(`/cards/${id}/prioridade/aceitar`, { method: 'POST' }),
+  recusarSugestao: (id) => pedir(`/cards/${id}/prioridade/recusar`, { method: 'POST' }),
+  ofertaDeContexto: (id) => pedir(`/projetos/${id}/oferta-contexto`),
+  dispensarOferta: (id) => pedir(`/projetos/${id}/oferta-contexto/dispensar`, { method: 'POST' }),
+  escreverContexto: (projeto) => pedir('/ia/escrever-contexto', { method: 'POST', corpo: { projeto } }),
+
   iaDisponivel: () => pedir('/ia/disponivel'),
   priorizar: (projeto) => pedir('/ia/priorizar', { method: 'POST', corpo: { projeto } }),
   relacionar: (projeto) => pedir('/ia/relacionar', { method: 'POST', corpo: { projeto } }),

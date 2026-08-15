@@ -1,5 +1,5 @@
 import { useDraggable } from '@dnd-kit/core'
-import { Etiqueta, PRIORIDADE_COR, formatarData } from './Pecas.jsx'
+import { Etiqueta, PRIORIDADE_COR, PRIORIDADE_ROTULO, formatarData } from './Pecas.jsx'
 
 /**
  * Um card no quadro.
@@ -8,7 +8,7 @@ import { Etiqueta, PRIORIDADE_COR, formatarData } from './Pecas.jsx'
  * o quê — mas NÃO some e não é escondido (PRD v2, 4.2). Esconder o que está
  * travado é como fingir que ele não existe.
  */
-export default function Cartao({ card, aoAbrir, atrasado }) {
+export default function Cartao({ card, aoAbrir, atrasado, aoDecidirPrioridade }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: card.id,
     data: { etapa: card.etapa },
@@ -57,9 +57,42 @@ export default function Cartao({ card, aoAbrir, atrasado }) {
             {card.tags.map((tag) => (
               <Etiqueta key={tag}>#{tag}</Etiqueta>
             ))}
-            {card.prioridade_sugerida && <Etiqueta tom="realce">prioridade sugerida</Etiqueta>}
             {sugestoes > 0 && <Etiqueta>{sugestoes} relação a confirmar</Etiqueta>}
           </div>
+
+          {/*
+            Sem contexto no projeto, a IA sugere em vez de decidir — e o pedido
+            de confirmação acontece aqui, no card, não escondido numa gaveta.
+            Os botões param a propagação para não abrir o card junto.
+          */}
+          {card.prioridade_sugerida && (
+            <div className="mt-2 rounded-md border border-realce/30 bg-realce-claro/50 px-2 py-1.5">
+              <p className="text-[11px] leading-snug text-realce">
+                Sugestão: prioridade <strong>{PRIORIDADE_ROTULO[card.prioridade]}</strong>
+              </p>
+              <div className="mt-1 flex gap-1">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    aoDecidirPrioridade(card, true)
+                  }}
+                  className="rounded border border-realce/40 bg-white px-1.5 py-0.5 text-[11px]
+                    font-medium text-realce hover:bg-realce-claro"
+                >
+                  é isso
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    aoDecidirPrioridade(card, false)
+                  }}
+                  className="rounded px-1.5 py-0.5 text-[11px] text-suave hover:bg-white"
+                >
+                  não
+                </button>
+              </div>
+            </div>
+          )}
 
           {travado && (
             <p className="mt-2 rounded-md bg-stone-100 px-2 py-1 text-[11px] text-suave">

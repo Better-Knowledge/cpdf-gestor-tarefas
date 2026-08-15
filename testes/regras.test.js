@@ -174,6 +174,78 @@ test('prioridade inválida é recusada', () => {
   assert.throws(() => r.atualizarCard(card.id, { prioridade: 'urgentíssima' }), /alta, media ou baixa/)
 })
 
+// --- Sugestão de prioridade e a oferta de contexto -------------------------
+
+/** A IA só marca sugestão quando o projeto não tem contexto escrito. */
+function simularSugestao(cardId, prioridade = 'alta') {
+  db.banco()
+    .prepare(
+      "UPDATE tarefas SET prioridade = ?, prioridade_origem = 'ia', prioridade_sugerida = 1," +
+        ' justificativa = ? WHERE id = ?',
+    )
+    .run(prioridade, 'tem data marcada e o projeto não tem contexto', cardId)
+}
+
+test('aceitar a sugestão carimba a prioridade como do usuário', () => {
+  const card = r.criarCard({ titulo: 'sugestão a aceitar' })
+  simularSugestao(card.id)
+  assert.equal(r.buscarCard(card.id).prioridade_sugerida, true)
+
+  const aceito = r.aceitarSugestao(card.id)
+  assert.equal(aceito.prioridade, 'alta')
+  assert.equal(aceito.prioridade_origem, 'usuario')
+  assert.equal(aceito.prioridade_sugerida, false)
+})
+
+test('recusar a sugestão volta para média e não deixa a IA mexer de novo', () => {
+  const card = r.criarCard({ titulo: 'sugestão a recusar' })
+  simularSugestao(card.id)
+  const recusado = r.recusarSugestao(card.id)
+  assert.equal(recusado.prioridade, 'media')
+  assert.equal(recusado.prioridade_origem, 'usuario')
+  assert.equal(recusado.justificativa, null)
+})
+
+test('aceitar o que não é sugestão é recusado', () => {
+  const card = r.criarCard({ titulo: 'sem sugestão nenhuma' })
+  assert.throws(() => r.aceitarSugestao(card.id), /não tem prioridade sugerida/)
+})
+
+test('três confirmações num projeto sem contexto disparam a oferta', () => {
+  const projeto = r.criarProjeto({ nome: 'Sem contexto' })
+  assert.equal(r.ofertaDeContexto(projeto.id), null, 'não oferece do nada')
+
+  for (const n of [1, 2, 3]) {
+    const card = r.criarCard({ titulo: `confirmada ${n}`, projeto: 'Sem contexto' })
+    simularSugestao(card.id)
+    r.aceitarSugestao(card.id)
+    if (n < 3) assert.equal(r.ofertaDeContexto(projeto.id), null, `não oferece com ${n}`)
+  }
+
+  const oferta = r.ofertaDeContexto(projeto.id)
+  assert.ok(oferta, 'na terceira, oferece')
+  assert.equal(oferta.projeto, 'Sem contexto')
+  assert.equal(oferta.confirmacoes, 3)
+  assert.ok(oferta.exemplos.length >= 1, 'a oferta leva exemplos do padrão observado')
+})
+
+test('projeto que já tem contexto escrito nunca recebe a oferta', () => {
+  const projeto = r.criarProjeto({ nome: 'Com contexto', contexto: 'O que tem data vem antes.' })
+  for (const n of [1, 2, 3, 4]) {
+    const card = r.criarCard({ titulo: `com contexto ${n}`, projeto: 'Com contexto' })
+    simularSugestao(card.id)
+    r.aceitarSugestao(card.id)
+  }
+  assert.equal(r.ofertaDeContexto(projeto.id), null)
+})
+
+test('dispensar a oferta zera a contagem', () => {
+  const projeto = r.buscarProjeto('Sem contexto')
+  assert.ok(r.ofertaDeContexto(projeto.id))
+  r.dispensarOferta(projeto.id)
+  assert.equal(r.ofertaDeContexto(projeto.id), null)
+})
+
 // --- Dependências ----------------------------------------------------------
 
 test('dependência confirmada marca o card como aguardando; sugestão não', () => {

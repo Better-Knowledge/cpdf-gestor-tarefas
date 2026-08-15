@@ -177,6 +177,58 @@ Priorize todos os cards da lista.`,
   }
 }
 
+const FERRAMENTA_CONTEXTO = {
+  name: 'registrar_contexto',
+  description: 'Registra o contexto do projeto inferido a partir das prioridades confirmadas.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      contexto: {
+        type: 'string',
+        description:
+          'De duas a quatro frases, em primeira pessoa, como o dono do projeto escreveria. ' +
+          'Diz o que faz uma tarefa ser urgente aqui dentro.',
+      },
+    },
+    required: ['contexto'],
+  },
+}
+
+const INSTRUCAO_CONTEXTO = `Você observa as prioridades que uma pessoa confirmou num projeto e
+escreve, no lugar dela, a regra que ela está seguindo sem ter escrito.
+
+Regras:
+- Escreva em primeira pessoa, do jeito que a pessoa falaria. Nada de linguagem de documento.
+- Só afirme o que os exemplos sustentam. Não invente prazo, cliente nem meta.
+- De duas a quatro frases. É um rascunho para a pessoa corrigir, não um contrato.`
+
+/**
+ * Escreve o contexto do projeto a partir do padrão que a pessoa confirmou.
+ *
+ * É o fim do laço da 4.1: em vez de ficar sugerindo para sempre num projeto sem
+ * contexto, o sistema percebe o padrão e oferece escrever a regra uma vez.
+ * O texto volta como RASCUNHO — quem salva é o usuário.
+ */
+export async function escreverContexto({ projeto }) {
+  const oferta = regras.ofertaDeContexto(regras.buscarProjeto(projeto).id)
+  if (!oferta?.exemplos?.length) {
+    throw new ErroDeRegra('Ainda não há confirmações suficientes para inferir um contexto.')
+  }
+
+  const resultado = await perguntar({
+    instrucao: INSTRUCAO_CONTEXTO,
+    ferramenta: FERRAMENTA_CONTEXTO,
+    prompt: `Projeto: "${oferta.projeto}".
+
+PRIORIDADES QUE A PESSOA CONFIRMOU
+${oferta.exemplos.map((e) => `• "${e.titulo}" → ${e.prioridade}. Motivo registrado: ${e.porque}`).join('\n')}
+
+Escreva o contexto deste projeto.`,
+  })
+
+  return { rascunho: resultado.contexto, projeto: oferta.projeto }
+}
+
 // ---------------------------------------------------------------------------
 // 4.2 — Relação e dependência
 // ---------------------------------------------------------------------------

@@ -2,7 +2,7 @@ import { DndContext, PointerSensor, useDroppable, useSensor, useSensors } from '
 import Cartao from './Cartao.jsx'
 import { Vazio } from './Pecas.jsx'
 
-function Coluna({ etapa, cards, aoAbrir, hoje }) {
+function Coluna({ etapa, cards, aoAbrir, hoje, aoDecidirPrioridade }) {
   const { setNodeRef, isOver } = useDroppable({ id: etapa.nome })
 
   return (
@@ -18,7 +18,13 @@ function Coluna({ etapa, cards, aoAbrir, hoje }) {
           ${isOver ? 'bg-realce-claro/60' : 'bg-stone-100/60'}`}
       >
         {cards.map((card) => (
-          <Cartao key={card.id} card={card} aoAbrir={aoAbrir} atrasado={card.data < hoje} />
+          <Cartao
+            key={card.id}
+            card={card}
+            aoAbrir={aoAbrir}
+            atrasado={card.data < hoje}
+            aoDecidirPrioridade={aoDecidirPrioridade}
+          />
         ))}
         {!cards.length && <p className="px-2 py-6 text-center text-xs text-suave">vazio</p>}
       </div>
@@ -32,7 +38,7 @@ function Coluna({ etapa, cards, aoAbrir, hoje }) {
  * Arrastar para a última coluna conclui o card — e a conclusão volta dizendo o
  * que destravou, que é o pedaço que fecha o loop.
  */
-export default function Quadro({ projeto, cards, aoMover, aoAbrir, hoje }) {
+export default function Quadro({ projeto, cards, aoMover, aoAbrir, hoje, aoDecidirPrioridade }) {
   const sensores = useSensors(
     // Sem a distância mínima, clicar no card viraria um arrasto de zero pixel
     // e o card nunca abriria.
@@ -62,6 +68,7 @@ export default function Quadro({ projeto, cards, aoMover, aoAbrir, hoje }) {
             cards={cards.filter((c) => c.etapa === etapa.nome)}
             aoAbrir={aoAbrir}
             hoje={hoje}
+            aoDecidirPrioridade={aoDecidirPrioridade}
           />
         ))}
       </div>

@@ -30,6 +30,7 @@ export default function App() {
   const [iaOcupada, setIaOcupada] = useState(null)
   const [ordem, setOrdem] = useState(null)
   const [quebras, setQuebras] = useState(null)
+  const [oferta, setOferta] = useState(null)
 
   const projeto = projetos?.find((p) => p.nome === projetoNome) ?? null
 
@@ -113,6 +114,24 @@ export default function App() {
           texto: `“${card.titulo}” destravou ${desbloqueadas.length} tarefa(s)`,
           itens: desbloqueadas.map((d) => d.titulo),
         })
+      }
+    })
+  }
+
+  /**
+   * Aceitar ou recusar a prioridade que a IA sugeriu.
+   *
+   * Aceitar três vezes num projeto sem contexto faz o sistema parar de
+   * adivinhar e oferecer escrever a regra de uma vez (PRD v2, 4.1).
+   */
+  async function decidirPrioridade(card, aceita) {
+    await comErro(async () => {
+      if (aceita) await api.aceitarSugestao(card.id)
+      else await api.recusarSugestao(card.id)
+      await recarregar()
+      if (aceita && projeto) {
+        const proposta = await api.ofertaDeContexto(projeto.id)
+        if (proposta) setOferta(proposta)
       }
     })
   }
@@ -315,6 +334,7 @@ export default function App() {
             aoMover={mover}
             aoAbrir={setCardAberto}
             hoje={hojeISO()}
+            aoDecidirPrioridade={decidirPrioridade}
           />
         )}
       </main>
@@ -347,6 +367,28 @@ export default function App() {
             setProjetoNome(novo.nome)
           }}
           aoAvisar={avisar}
+        />
+      )}
+
+      {oferta && projeto && (
+        <OfertaDeContexto
+          oferta={oferta}
+          projeto={projeto}
+          iaDisponivel={iaDisponivel}
+          aoAvisar={avisar}
+          aoFechar={async () => {
+            await api.dispensarOferta(projeto.id).catch(() => {})
+            setOferta(null)
+          }}
+          aoSalvar={async (texto) => {
+            await comErro(async () => {
+              await api.atualizarProjeto(projeto.id, { contexto: texto })
+              await api.dispensarOferta(projeto.id)
+              setProjetos(await api.projetos())
+              avisar({ tom: 'ok', texto: `Contexto de "${projeto.nome}" escrito.` })
+            })
+            setOferta(null)
+          }}
         />
       )}
 
@@ -391,6 +433,81 @@ export default function App() {
             )}
           </div>
         ))}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * "Parece que aqui o que tem data marcada vem primeiro. Quer que eu escreva
+ * isso no contexto do projeto?"
+ *
+ * O fim do laço da 4.1: depois de três confirmações, em vez de continuar
+ * adivinhando para sempre, o sistema pede para a pessoa escrever a regra uma
+ * vez. Com IA ele traz um rascunho; sem IA, a caixa vem em branco — e a caixa
+ * em branco já é o ganho, porque o pedido é o que faltava.
+ */
+function OfertaDeContexto({ oferta, projeto, iaDisponivel, aoFechar, aoSalvar, aoAvisar }) {
+  const [texto, setTexto] = useState('')
+  const [ocupado, setOcupado] = useState(false)
+
+  async function rascunhar() {
+    setOcupado(true)
+    try {
+      const { rascunho } = await api.escreverContexto(projeto.nome)
+      setTexto(rascunho)
+    } catch (erro) {
+      aoAvisar({ tom: 'erro', texto: erro.message })
+    } finally {
+      setOcupado(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-tinta/20 p-4">
+      <div className="w-full max-w-lg rounded-2xl border border-borda bg-white p-6 shadow-2xl">
+        <h2 className="text-lg font-semibold">
+          Você já confirmou {oferta.confirmacoes} prioridades em “{projeto.nome}”
+        </h2>
+        <p className="mt-1 text-sm text-suave">
+          Existe uma regra aí, e ela só está na sua cabeça. Se ela estiver escrita, eu paro de
+          perguntar e passo a priorizar sozinho.
+        </p>
+
+        <ul className="mt-4 space-y-1">
+          {oferta.exemplos.slice(0, 3).map((e) => (
+            <li key={e.titulo} className="rounded-lg bg-stone-100 px-3 py-1.5 text-xs">
+              <strong>{e.titulo}</strong> → {e.prioridade}
+            </li>
+          ))}
+        </ul>
+
+        <textarea
+          rows={5}
+          value={texto}
+          onChange={(evento) => setTexto(evento.target.value)}
+          placeholder="O que faz uma tarefa ser urgente neste projeto?"
+          className="mt-4 w-full resize-none rounded-lg border border-borda px-3 py-2 font-mono
+            text-[13px] leading-relaxed focus:border-realce focus:outline-none"
+        />
+
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+          {iaDisponivel ? (
+            <Botao onClick={rascunhar} disabled={ocupado}>
+              {ocupado ? 'escrevendo…' : 'escreve um rascunho pra mim'}
+            </Botao>
+          ) : (
+            <span />
+          )}
+          <span className="flex gap-2">
+            <Botao variante="fantasma" onClick={aoFechar}>
+              agora não
+            </Botao>
+            <Botao variante="forte" disabled={!texto.trim()} onClick={() => aoSalvar(texto.trim())}>
+              salvar o contexto
+            </Botao>
+          </span>
+        </div>
       </div>
     </div>
   )
