@@ -12,6 +12,7 @@ import express from 'express'
 
 import { carregarEnv, RAIZ } from './env.js'
 import { rotas, tratarErros } from './rotas.js'
+import { documentacao } from './documentacao.js'
 import { porteiro, permissoes, limitarTaxa, resumoDaTranca, configuracao, ehLocal } from './auth.js'
 import { banco, CAMINHO_BANCO } from './db.js'
 
@@ -42,6 +43,10 @@ app.use(porteiro)
 app.use(limitarTaxa)
 
 app.use('/api', permissoes, rotas)
+
+// Antes do painel, e não depois: a rota curinga logo abaixo devolve o
+// index.html para tudo que não começa com /api, e engoliria /docs.
+app.use(documentacao)
 
 if (existsSync(DIST)) {
   app.use(express.static(DIST))
@@ -90,6 +95,7 @@ if (!ehLocal(HOST) && !configuracao().ligada) {
 
 app.listen(PORTA, HOST, () => {
   console.log(`\n  Gestor de tarefas no ar em http://localhost:${PORTA}`)
+  console.log(`  A API documentada em http://localhost:${PORTA}/docs`)
   console.log(`  Banco: ${CAMINHO_BANCO}`)
   console.log(resumoDaTranca({ host: HOST }))
   if (!process.env.ANTHROPIC_API_KEY) {

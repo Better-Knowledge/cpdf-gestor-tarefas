@@ -299,6 +299,10 @@ descrição e escolhe qual usar:
 curl http://localhost:3000/api/operacoes
 ```
 
+Isso é o índice de bolso: as operações principais, uma frase cada. Quem precisa
+dos parâmetros, dos corpos e do formato exato de cada resposta lê o contrato
+inteiro — ver [A API documentada](#a-api-documentada).
+
 Duas formas de chamar, e as duas passam pela mesma API:
 
 **Pela linha de comando** — mais curto:
@@ -328,6 +332,51 @@ curl -X POST http://localhost:3000/api/cards \
 
 ---
 
+## A API documentada
+
+Com o servidor no ar, **http://localhost:3000/docs**.
+
+É a API inteira — as 41 rotas, com os parâmetros, os corpos, o formato de cada
+resposta e o que cada uma **garante**. Dá para experimentar cada chamada ali
+mesmo, sem sair da página: o botão de testar bate nesta mesma origem, então a
+credencial que abriu o painel já vale.
+
+A página é o [Scalar](https://scalar.com); o documento por trás dela é
+**OpenAPI 3.1**, servido pela própria aplicação:
+
+```bash
+curl http://localhost:3000/openapi.json
+```
+
+Os dois ficam atrás da mesma tranca do resto do sistema — se o painel pede
+senha, a documentação pede também.
+
+**Para o agente, o `openapi.json` é o que importa.** É o contrato: dá para
+gerar cliente a partir dele, validar uma resposta contra ele ou simplesmente
+lê-lo antes da primeira chamada. Ele é servido localmente e não depende de
+mais nada. A página `/docs` é para gente ler, e essa sim busca o renderizador
+num CDN — offline, `/docs` fica em branco e o `openapi.json` continua inteiro.
+Quem quiser servir o renderizador de outro lugar aponta `DOCS_CDN` no `.env`.
+
+### Por que ele não desatualiza
+
+Documentação de API não erra quando é escrita — erra seis meses depois, quando
+alguém acrescenta uma rota e não volta no documento. A partir daí ela é pior
+que documentação nenhuma, porque quem lê confia.
+
+Aqui isso é **teste** (`npm test`):
+
+- Rota nova sem documentação **quebra o build**, dizendo qual é.
+- Rota documentada que não existe mais, idem.
+- Os valores aceitos (`tarefa`/`ideia`, `alta`/`media`/`baixa`, `dono`/`convidado`)
+  não são digitados no documento: vêm por `import` de `server/db.js` e
+  `server/chaves.js`, os mesmos que as regras usam.
+
+O que o teste não garante é que a *descrição* de cada rota esteja certa — isso
+continua sendo leitura humana.
+
+---
+
 ## As regras que o sistema garante
 
 Escritas em português, e testadas em código (`npm test`):
@@ -350,16 +399,18 @@ Escritas em português, e testadas em código (`npm test`):
 ```
 gestor-tarefas/
 ├── server/
-│   ├── db.js        ← o banco e a migração v1 → v2
-│   ├── regras.js    ← TODAS as regras de negócio moram aqui
-│   ├── rotas.js     ← a API HTTP (painel e agente usam a mesma)
-│   ├── ia.js        ← as rotinas de IA, em lote
-│   ├── resumo.js    ← o resumo no Telegram
-│   └── analisar.js  ← a rotina de madrugada
-├── src/             ← o painel (React)
-├── cli/tarefas.js   ← a linha de comando do agente
-├── testes/          ← as regras, escritas como teste
-└── tarefas.db       ← os seus dados (criado na primeira execução)
+│   ├── db.js           ← o banco e a migração v1 → v2
+│   ├── regras.js       ← TODAS as regras de negócio moram aqui
+│   ├── rotas.js        ← a API HTTP (painel e agente usam a mesma)
+│   ├── openapi.js      ← o contrato da API, em OpenAPI 3.1
+│   ├── documentacao.js ← /openapi.json e a página /docs
+│   ├── ia.js           ← as rotinas de IA, em lote
+│   ├── resumo.js       ← o resumo no Telegram
+│   └── analisar.js     ← a rotina de madrugada
+├── src/                ← o painel (React)
+├── cli/tarefas.js      ← a linha de comando do agente
+├── testes/             ← as regras, escritas como teste
+└── tarefas.db          ← os seus dados (criado na primeira execução)
 ```
 
 A regra de ouro: **regra de negócio só existe em `server/regras.js`.** A API, a

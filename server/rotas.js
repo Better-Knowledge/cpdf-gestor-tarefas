@@ -65,6 +65,14 @@ rotas.get('/operacoes', (req, res) => {
       'Todas as rotas devolvem JSON. Se algo der errado, vem { "erro": "mensagem em português" } ' +
       'com status 4xx. Quando não achar um card ou projeto pelo nome, a mensagem diz quais existem — ' +
       'pergunte ao usuário em vez de criar um parecido.',
+    // Esta lista é o índice de bolso: as operações principais, uma frase cada.
+    // Quem precisa dos parâmetros e do formato exato de cada resposta lê o
+    // contrato inteiro — e é para lá que esta linha aponta.
+    contrato: {
+      openapi: '/openapi.json',
+      paraLer: '/docs',
+      sobre: 'O contrato completo em OpenAPI 3.1: parâmetros, corpos e respostas de todas as rotas.',
+    },
     operacoes: OPERACOES.map(([rota, descricao]) => ({ rota, descricao })),
   })
 })
