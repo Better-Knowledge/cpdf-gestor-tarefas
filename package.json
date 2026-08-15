@@ -17,7 +17,8 @@
     "tarefas": "node cli/tarefas.js",
     "test": "node --test testes/*.test.js",
     "chave": "node cli/chave.js",
-    "demo": "node cli/demo.js"
+    "demo": "node cli/demo.js",
+    "telegram": "node server/escutar.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.65.0",

@@ -74,6 +74,8 @@ const PROIBIDO_AO_CONVIDADO = [
   { metodo: 'GET', caminho: /^\/chaves/, motivo: 'ver as chaves' },
   { metodo: 'POST', caminho: /^\/chaves/, motivo: 'criar chave' },
   { metodo: 'PATCH', caminho: /^\/chaves/, motivo: 'mudar chave' },
+  { metodo: 'POST', caminho: /^\/telegram/, motivo: 'parear o Telegram' },
+  { metodo: 'DELETE', caminho: /^\/telegram/, motivo: 'desparear o Telegram' },
 ]
 
 /** Rotas que gastam a conta da Anthropic — separadas do papel, por escopo. */

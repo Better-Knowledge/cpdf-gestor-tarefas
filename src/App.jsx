@@ -5,6 +5,7 @@ import EAgora from './componentes/EAgora.jsx'
 import DetalheCard from './componentes/DetalheCard.jsx'
 import PainelProjeto, { NovoProjeto } from './componentes/PainelProjeto.jsx'
 import Chaves from './componentes/Chaves.jsx'
+import Telegram from './componentes/Telegram.jsx'
 import { Botao, Carregando, Etiqueta } from './componentes/Pecas.jsx'
 
 const hojeISO = () => {
@@ -33,6 +34,7 @@ export default function App() {
   const [quebras, setQuebras] = useState(null)
   const [oferta, setOferta] = useState(null)
   const [vendoChaves, setVendoChaves] = useState(false)
+  const [vendoTelegram, setVendoTelegram] = useState(false)
   const [eu, setEu] = useState(null)
 
   const projeto = projetos?.find((p) => p.nome === projetoNome) ?? null
@@ -188,9 +190,14 @@ export default function App() {
               {!projeto?.contexto && <span className="ml-1 text-terracota">•</span>}
             </Botao>
             {eu?.papel === 'dono' && (
-              <Botao variante="fantasma" onClick={() => setVendoChaves(true)}>
-                chaves
-              </Botao>
+              <>
+                <Botao variante="fantasma" onClick={() => setVendoChaves(true)}>
+                  chaves
+                </Botao>
+                <Botao variante="fantasma" onClick={() => setVendoTelegram(true)}>
+                  telegram
+                </Botao>
+              </>
             )}
             <Botao variante="forte" onClick={() => setModo(modo === 'agora' ? 'quadro' : 'agora')}>
               {modo === 'agora' ? 'ver o quadro' : 'E agora?'}
@@ -399,6 +406,10 @@ export default function App() {
       )}
 
       {vendoChaves && <Chaves aoFechar={() => setVendoChaves(false)} aoAvisar={avisar} />}
+
+      {vendoTelegram && (
+        <Telegram aoFechar={() => setVendoTelegram(false)} aoAvisar={avisar} />
+      )}
 
       {ordem && <OrdemDoDia ordem={ordem} aoFechar={() => setOrdem(null)} />}
 

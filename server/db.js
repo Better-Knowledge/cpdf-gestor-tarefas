@@ -164,6 +164,38 @@ CREATE TABLE chaves (
 CREATE INDEX idx_chaves_hash ON chaves(hash);
 `
 
+/**
+ * v4 — o Telegram passa a ter allowlist com pareamento.
+ *
+ * Descobrir o chat resolve "para quem mandar". Não resolve "quem pode falar
+ * com o bot" — e um bot é público por natureza: qualquer pessoa que descubra o
+ * nome dele abre uma conversa.
+ *
+ * Então o bot só atende chat que está na lista, e entrar na lista exige um
+ * código gerado no painel. Quem tem acesso ao painel é quem autoriza.
+ */
+const ESQUEMA_V4 = `
+CREATE TABLE telegram_chats (
+  chat_id    TEXT PRIMARY KEY,
+  nome       TEXT NOT NULL,
+  pareado_em TEXT NOT NULL,
+  ultimo_uso TEXT,
+  ativo      INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE pareamentos (
+  codigo    TEXT PRIMARY KEY,
+  criado_em TEXT NOT NULL,
+  expira_em TEXT NOT NULL,
+  usado_por TEXT
+);
+
+CREATE TABLE config (
+  chave TEXT PRIMARY KEY,
+  valor TEXT
+);
+`
+
 const COLUNAS_V3 = [
   // De onde veio o card: qual chave o registrou. Num quadro compartilhado numa
   // demonstração ao vivo, sem isto ninguém sabe quem escreveu o quê.
@@ -208,7 +240,26 @@ function migrar(bd) {
       bd.exec(`ALTER TABLE tarefas ADD COLUMN ${nome} ${definicao}`)
     }
     bd.exec('PRAGMA user_version = 3')
+    versao = 3
   }
+
+  if (versao < 4) {
+    bd.exec(ESQUEMA_V4)
+    bd.exec('PRAGMA user_version = 4')
+  }
+}
+
+/** Guarda-chuva de configuração que vive no banco, não no .env. */
+export function lerConfig(chave, padrao = null) {
+  return banco().prepare('SELECT valor FROM config WHERE chave = ?').get(chave)?.valor ?? padrao
+}
+
+export function gravarConfig(chave, valor) {
+  banco()
+    .prepare(
+      'INSERT INTO config (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor',
+    )
+    .run(chave, valor == null ? null : String(valor))
 }
 
 function criarProjetoPadrao(bd) {

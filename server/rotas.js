@@ -15,6 +15,7 @@ import { ErroDeRegra, DIAS_ATE_SUGERIR_QUEBRA } from './db.js'
 import * as regras from './regras.js'
 import * as ia from './ia.js'
 import * as chaves from './chaves.js'
+import * as telegram from './telegram.js'
 
 export const rotas = Router()
 
@@ -309,6 +310,29 @@ rotas.patch(
 rotas.post(
   '/chaves/:id/revogar',
   rota((req) => chaves.revogarChave(req.params.id)),
+)
+
+// ---------------------------------------------------------------------------
+// Telegram — allowlist e pareamento
+// ---------------------------------------------------------------------------
+
+rotas.get('/telegram', (req, res) =>
+  res.json({ bot: telegram.temBot(), chats: telegram.temBot() ? telegram.listarChats() : [] }),
+)
+
+rotas.post(
+  '/telegram/codigo',
+  rota(() => {
+    if (!telegram.temBot()) {
+      throw new ErroDeRegra('Sem TELEGRAM_BOT_TOKEN no .env — não há bot para parear.', 503)
+    }
+    return telegram.gerarCodigo()
+  }),
+)
+
+rotas.delete(
+  '/telegram/chats/:id',
+  rota((req) => telegram.removerChat(req.params.id)),
 )
 
 /** Quem sou eu, na visão do servidor. O painel usa para saber o que mostrar. */

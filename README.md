@@ -24,7 +24,8 @@ Roda na sua máquina. Sem nuvem, sem conta, sem mensalidade.
 - **Dependências**: a IA propõe, você confirma. Ao concluir um card, o sistema
   diz **o que aquilo destravou**.
 - **Modo "e agora?"** — uma tarefa na tela, com o porquê e três botões.
-- **Resumo do dia no Telegram**, na hora marcada, sem você pedir.
+- **Telegram com allowlist** — pareamento por código gerado no painel. Frase
+  mandada ao bot vira card; o resumo do dia chega na hora marcada.
 - **Tudo acessível ao seu agente**, pela mesma API que o painel usa.
 
 ## O que ele **não** faz
@@ -229,6 +230,41 @@ reinicie. Revogar é isso: a chave deixa de existir.
 > **Leve um plano B.** Deixe a sua instância local rodando em paralelo. Se a
 > VPS ou a rede der problema no meio, você compartilha a tela e segue — sem
 > pausa para depurar na frente de todo mundo.
+
+---
+
+## O celular, pelo Telegram
+
+Não há aplicativo próprio de propósito — o celular entra por um bot. E um bot é
+**público**: qualquer pessoa que descubra o nome dele abre uma conversa. O token
+protege o bot de ser *operado* por terceiros; não protege de ser *conversado*.
+
+Por isso o bot só atende **quem está na allowlist**, e entrar nela custa um
+código gerado no painel. Quem tem o painel é quem autoriza.
+
+```bash
+npm run telegram    # o bot escutando; deixe rodando
+```
+
+1. `@BotFather` no Telegram → `/newbot` → cole o token em `TELEGRAM_BOT_TOKEN`
+2. No painel, **telegram** → *gerar código de pareamento*
+3. No Telegram, mande ao bot: `/parear 123456`
+
+O código tem **seis dígitos, vale 15 minutos e serve uma vez**.
+
+Depois de pareado, quem está na lista pode:
+
+- mandar **qualquer frase** → vira card, com a origem registrada (`#via-telegram-maria`)
+- `/hoje` → a lista do dia
+- e recebe o **resumo das 18h**
+
+Quem **não** está na lista recebe só a instrução de pareamento — nada do que
+existe do outro lado. Remover alguém da lista é um clique, e o bot para de
+responder na hora.
+
+> **Numa VPS**, o `npm run telegram` é um segundo processo. No `docker-compose`,
+> um segundo serviço com a mesma imagem e `command: npm run telegram`,
+> compartilhando o mesmo volume do banco.
 
 ### Deixando o resumo chegar às 18h
 

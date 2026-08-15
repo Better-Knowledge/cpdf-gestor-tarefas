@@ -67,6 +67,9 @@ export const api = {
   escreverContexto: (projeto) => pedir('/ia/escrever-contexto', { method: 'POST', corpo: { projeto } }),
 
   eu: () => pedir('/eu'),
+  telegram: () => pedir('/telegram'),
+  gerarCodigoTelegram: () => pedir('/telegram/codigo', { method: 'POST' }),
+  removerChatTelegram: (id) => pedir(`/telegram/chats/${id}`, { method: 'DELETE' }),
   chaves: () => pedir('/chaves'),
   criarChave: (corpo) => pedir('/chaves', { method: 'POST', corpo }),
   alterarChave: (id, corpo) => pedir(`/chaves/${id}`, { method: 'PATCH', corpo }),
