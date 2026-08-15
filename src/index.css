@@ -1,0 +1,46 @@
+@import 'tailwindcss';
+
+/*
+ * Paleta calma, de propósito.
+ *
+ * Um gestor de tarefas para quem trava não pode ser uma tela que grita.
+ * Atrasado não é vermelho (PRD v2, Parte 5, decisão 4) — é âmbar, e discreto.
+ * Vermelho aqui é só para o que o usuário está prestes a apagar.
+ */
+@theme {
+  --color-papel: #faf8f5;
+  --color-tinta: #1c1917;
+  --color-suave: #78716c;
+  --color-borda: #e7e2dc;
+  --color-realce: #b45309;
+  --color-realce-claro: #fef3c7;
+  --color-calmo: #0f766e;
+  --color-calmo-claro: #ccfbf1;
+}
+
+html,
+body,
+#raiz {
+  height: 100%;
+}
+
+body {
+  background: var(--color-papel);
+  color: var(--color-tinta);
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* O card sendo arrastado não pode capturar o próprio ponteiro. */
+.arrastando {
+  opacity: 0.4;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

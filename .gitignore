@@ -1,0 +1,14 @@
+# As suas tarefas. Não vão para o git — são suas, e o repositório é público.
+tarefas.db
+tarefas.db-wal
+tarefas.db-shm
+*.db
+
+# As suas chaves.
+.env
+
+node_modules/
+dist/
+
+.DS_Store
+Thumbs.db
