@@ -14,6 +14,12 @@ async function pedir(caminho, opcoes = {}) {
   })
   const dados = await resposta.json().catch(() => null)
   if (!resposta.ok) {
+    // O navegador só mostra a caixa de senha quando ELE inicia a navegação;
+    // num fetch o 401 volta calado, e sem esta mensagem a tela diria apenas
+    // "não consegui falar com o servidor".
+    if (resposta.status === 401) {
+      throw new Error('A sessão expirou. Recarregue a página para entrar de novo.')
+    }
     throw new Error(dados?.erro ?? 'Não consegui falar com o servidor.')
   }
   return dados

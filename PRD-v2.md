@@ -98,7 +98,25 @@ capacidade e passou a ser sequenciamento.
 - Relatórios gerenciais, gráficos de produtividade, métricas de desempenho pessoal
 - Aplicativo de celular próprio — o celular continua entrando pelo Telegram
 - Integração com calendário
-- Cobrança, planos, contas de usuário
+- Cobrança, planos, **cadastro de usuário**
+
+### Uma fechadura, e não uma portaria
+
+O sistema continua sendo **de um usuário só**. Mas ele precisa ser alcançável pelo agente, e
+o que é alcançável precisa de tranca. Então existem **duas credenciais, e nenhum cadastro**:
+
+- **Usuário e senha** (padrão `admin` / `cpdf2026`) para o painel — é gente digitando.
+- **Uma chave de API** para o agente — `Authorization: Bearer`. Nunca a senha do dono: chave
+  se troca sozinha, senha não.
+
+A distinção que mantém isso fora da coluna de cima: **não há cadastro, não há segundo
+usuário, não há recuperação de senha.** É uma fechadura na porta, não uma portaria com
+livro de visitas — e é por isso que ela custa um arquivo de 90 linhas em vez de uma
+funcionalidade inteira.
+
+**E a tranca é opcional por construção.** Sem `.env`, o servidor escuta só em `127.0.0.1` e
+não pede nada: é exatamente o sistema que o build ao vivo da v1 produz, e é o que mantém o
+slide 6 verdadeiro. A tranca acende quando o arquivo existe.
 
 > **Sobre os relatórios de produtividade:** ficam de fora de propósito. Um sistema que mede
 > quanto você produziu é um sistema que produz culpa, e culpa é exatamente o que trava as
@@ -442,3 +460,10 @@ O que a v2 acrescenta:
   `proxima` (o "e agora?"), `atrasados`, `replanejar` e as quatro rotinas de IA. Todas na
   mesma API `/api` que o painel consome, listadas em `/api/operacoes` com descrição em
   português. **Envelopar como MCP é o passo seguinte, não este.**
+- **A tranca:** HTTP Basic para o painel, `Authorization: Bearer` (ou `X-API-Key`) para o
+  agente, comparação em tempo constante nas duas. O porteiro fica **antes dos arquivos
+  estáticos**, não só antes da `/api` — senão o painel inteiro é servido a quem não entrou.
+  Chave errada responde 401 **sem** `WWW-Authenticate`: com o cabeçalho, quem estivesse
+  depurando o agente pelo navegador levaria uma caixa de senha na cara. Bind em
+  `127.0.0.1` por padrão; `HOST=0.0.0.0` é opt-in explícito e o servidor grita se subir
+  exposto sem senha.

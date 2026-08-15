@@ -31,7 +31,9 @@ Roda na sua máquina. Sem nuvem, sem conta, sem mensalidade.
 
 Não é esquecimento — é escopo.
 
-- Não tem login, senha nem mais de um usuário. É seu, na sua máquina.
+- Não tem cadastro de usuário, "esqueci minha senha" nem segundo usuário. A
+  senha do `.env` é uma fechadura, não uma portaria — ver [Quem pode
+  entrar](#quem-pode-entrar).
 - Não tem colaboração, comentário nem tarefa atribuída a outra pessoa.
 - Não tem anexo nem arquivo dentro do card.
 - Não tem relatório de produtividade. Um sistema que mede o quanto você produziu
@@ -56,15 +58,50 @@ servidor — um comando, uma porta, um processo.
 Na primeira execução o banco é criado sozinho, com o projeto `Dia a dia` dentro.
 Não precisa rodar mais nada.
 
-### Ligando a IA e o Telegram (opcional)
+### Ligando a tranca, a IA e o Telegram (opcional)
 
 ```bash
 cp .env.example .env
 ```
 
 Preencha o que quiser usar. As instruções de cada chave estão dentro do arquivo.
-**Sem `.env` o sistema funciona igual** — só não prioriza, não sugere
-dependência e não manda o resumo.
+**Sem `.env` o sistema funciona igual** — só não tranca, não prioriza, não
+sugere dependência e não manda o resumo.
+
+---
+
+## Quem pode entrar
+
+**Sem `.env`, não há tranca — e não precisa haver:** o servidor escuta só em
+`127.0.0.1`, ou seja, o sistema não existe para o resto da rede. É o sistema de
+um usuário só, você, na sua máquina.
+
+Quando você preenche o `.env`, acendem **duas portas separadas**:
+
+| Porta | Para quem | Como |
+|---|---|---|
+| `AUTH_USUARIO` + `AUTH_SENHA` | **Gente** | O navegador pede usuário e senha ao abrir o painel |
+| `API_KEY` | **Agente** | `Authorization: Bearer <chave>` ou `X-API-Key: <chave>` |
+
+O padrão do `.env.example` é usuário **`admin`**, senha **`cpdf2026`**.
+**Troque a senha se este sistema for sair da sua máquina.**
+
+São duas portas de propósito: a senha é sua e você digita; a chave é do agente,
+vive em arquivo de configuração e pode ser trocada sozinha sem você mudar nada
+do seu lado. Uma não vale pela outra — a chave não é aceita como senha nem a
+senha como chave.
+
+```bash
+npm run chave     # gera uma chave forte para colar no .env
+```
+
+A senha protege **o painel também**, não só a API — sem isso a página e o
+código dela seriam servidos para qualquer um.
+
+> **Expor na rede.** O padrão `HOST=127.0.0.1` é a tranca que vem antes da
+> senha. Só mude para `0.0.0.0` se você realmente quiser que outras máquinas
+> alcancem o sistema — e preencha senha e chave antes. Se subir exposto e sem
+> senha, o servidor avisa em letras grandes no terminal.
 
 ### Deixando o resumo chegar às 18h
 
@@ -111,10 +148,13 @@ npm run tarefas -- concluir 7
 npm run tarefas -- ajuda
 ```
 
+A CLI lê a credencial do `.env` sozinha — você nunca digita chave.
+
 **Por HTTP** — é o que vira MCP depois:
 
 ```bash
 curl -X POST http://localhost:3000/api/cards \
+  -H "Authorization: Bearer $API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"titulo":"gravar a aula 3","projeto":"Curso"}'
 ```

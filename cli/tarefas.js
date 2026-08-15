@@ -48,12 +48,30 @@ const lista = (valor) =>
         .filter(Boolean)
     : undefined
 
+/**
+ * As credenciais saem do `.env`, então quem usa a CLI nunca digita chave.
+ *
+ * Preferimos a chave de API à senha: se a CLI mandasse a senha do painel, a
+ * senha do dono estaria em toda linha de comando que o agente executa.
+ */
+function credencial() {
+  const chave = process.env.API_KEY?.trim()
+  if (chave) return { Authorization: `Bearer ${chave}` }
+
+  const usuario = process.env.AUTH_USUARIO?.trim()
+  const senha = process.env.AUTH_SENHA?.trim()
+  if (usuario && senha) {
+    return { Authorization: `Basic ${Buffer.from(`${usuario}:${senha}`).toString('base64')}` }
+  }
+  return {}
+}
+
 async function chamar(metodo, caminho, corpo) {
   let resposta
   try {
     resposta = await fetch(BASE + caminho, {
       method: metodo,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...credencial() },
       body: corpo ? JSON.stringify(corpo) : undefined,
     })
   } catch {
@@ -66,6 +84,12 @@ async function chamar(metodo, caminho, corpo) {
   const dados = await resposta.json().catch(() => null)
   if (!resposta.ok) {
     console.error(dados?.erro ?? `Erro ${resposta.status}.`)
+    if (resposta.status === 401) {
+      console.error(
+        'O sistema está trancado e o .env desta pasta não tem a credencial.\n' +
+          'Preencha API_KEY (ou AUTH_USUARIO e AUTH_SENHA) no .env.',
+      )
+    }
     process.exit(1)
   }
   return dados
