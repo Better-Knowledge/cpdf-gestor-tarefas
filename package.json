@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.65.0",
+    "@scalar/express-api-reference": "^0.10.14",
     "express": "^5.1.0"
   },
   "devDependencies": {
