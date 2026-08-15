@@ -16,8 +16,17 @@
  */
 
 import { randomInt } from 'node:crypto'
-import { banco, agora, hoje, lerConfig, gravarConfig, ErroDeRegra } from './db.js'
+import {
+  banco,
+  agora,
+  hoje,
+  lerConfig,
+  gravarConfig,
+  ErroDeRegra,
+  PROJETO_PADRAO,
+} from './db.js'
 import * as regras from './regras.js'
+import * as ia from './ia.js'
 
 const VALIDADE_MINUTOS = 15
 
@@ -154,10 +163,47 @@ const AJUDA = `Eu sou o seu gestor de tarefas.
 2. vá em *Telegram* e gere um código
 3. me mande aqui: \`/parear 123456\``
 
+const COMANDOS = `Manda qualquer frase e eu registro como tarefa. Pergunta eu respondo.
+
+*Consultar*
+/hoje — a lista de hoje
+/proxima — a próxima tarefa, com o porquê
+/listar \`[projeto]\` — o que está aberto
+/buscar \`texto\` — procura por trecho
+/atrasados — o que venceu e continua aberto
+/projetos — os projetos e suas etapas
+
+*Mexer*
+/concluir \`id\` — conclui e diz o que isso destravou
+/adiar \`id\` \`data\` — aceita amanhã, sexta, 3d, 16/08
+/foco \`id\` — marca como uma das três coisas de hoje
+/registrar — registra a última frase que eu li como pergunta`
+
 const BEM_VINDO = `Pronto — agora a gente se conhece.
 
-Me manda qualquer frase e eu registro como tarefa.
-\`/hoje\` mostra a lista de hoje.`
+${COMANDOS}`
+
+/**
+ * Neutraliza o que o Markdown do Telegram interpreta.
+ *
+ * Título com `_` ou `*` solto faz o `sendMessage` voltar 400 e a resposta some
+ * sem deixar rastro na conversa — o card fica criado e a pessoa acha que o bot
+ * ignorou. Conteúdo escrito por gente nunca pode quebrar a mensagem que o
+ * carrega.
+ */
+const limpar = (texto) => String(texto ?? '').replace(/[_*`[\]]/g, '')
+
+/** Uma linha por card: o id na frente, porque é por ele que os comandos pegam. */
+function linhaDoCard(card) {
+  const foco = card.hoje ? '★ ' : ''
+  const travado = card.aguardando.length ? ` ⏳ aguarda #${card.aguardando[0].id}` : ''
+  const projeto =
+    card.projeto && card.projeto !== PROJETO_PADRAO ? ` — ${limpar(card.projeto)}` : ''
+  return `${foco}\`#${card.id}\` ${limpar(card.titulo)}${projeto}${travado}`
+}
+
+const lista = (cards, titulo, vazio) =>
+  cards.length ? `*${titulo}* (${cards.length})\n${cards.map(linhaDoCard).join('\n')}` : vazio
 
 /**
  * Responde uma mensagem.
@@ -166,6 +212,187 @@ Me manda qualquer frase e eu registro como tarefa.
  * conteúdo, nada de "não autorizado" com detalhe: para quem não está na lista,
  * o sistema não conta o que existe do outro lado.
  */
+/**
+ * A última frase que a IA leu como pergunta, por chat.
+ *
+ * É o que o `/registrar` recupera quando a leitura erra. Fica em memória e
+ * morre com o processo, de propósito: oferta de um minuto atrás não precisa
+ * sobreviver a um restart, e persistir isso seria criar uma tabela para
+ * guardar arrependimento.
+ */
+const ultimaPergunta = new Map()
+
+function idValido(bruto) {
+  const id = Number(bruto)
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new ErroDeRegra(`"${bruto}" não é um id. O id é o número que aparece antes do título.`)
+  }
+  return id
+}
+
+function textoDaProxima(projeto = null) {
+  const { card, porque, restantes } = regras.proxima({ projeto })
+  if (!card) {
+    return 'Nada disponível agora — ou está tudo feito, ou o que resta aguarda dependência.'
+  }
+  return (
+    `*Agora:* ${limpar(card.titulo)}  \`#${card.id}\`\n` +
+    `_${limpar(porque)}_\n\n` +
+    `${restantes} depois dessa. \`/concluir ${card.id}\` quando terminar.`
+  )
+}
+
+function textoDosProjetos() {
+  const projetos = regras.listarProjetos()
+  if (!projetos.length) return 'Nenhum projeto.'
+  return (
+    '*Projetos*\n' +
+    projetos
+      .map((p) => {
+        const abertos = regras.listarCards({ projeto: p.id, status: 'aberto' }).length
+        const etapas = p.etapas.map((e) => limpar(e.nome)).join(' → ')
+        return `• ${limpar(p.nome)} — ${abertos} aberto(s)\n  _${etapas}_`
+      })
+      .join('\n')
+  )
+}
+
+/**
+ * Os comandos. Devolve o texto da resposta, ou `null` se não conhecer o nome.
+ *
+ * Tudo aqui é síncrono e sem IA: são as mesmas funções de `regras.js` que o
+ * painel usa. É a base que continua de pé com a chave de API fora do ar.
+ */
+function executarComando(comando, argumento) {
+  const arg = argumento.trim()
+
+  switch (comando) {
+    case 'start':
+    case 'ajuda':
+    case 'help':
+      return BEM_VINDO
+
+    case 'hoje':
+      return lista(regras.listaDeHoje(), 'Hoje', 'Nada aberto para hoje.')
+
+    case 'proxima':
+      return textoDaProxima(arg || null)
+
+    case 'listar':
+      return lista(
+        regras.listarCards({ projeto: arg || null, status: 'aberto' }),
+        arg ? `Abertos em ${arg}` : 'Abertos',
+        arg ? `Nada aberto em "${arg}".` : 'Nada aberto.',
+      )
+
+    case 'buscar':
+      if (!arg) return 'Use assim: `/buscar contrato`'
+      return lista(
+        regras.listarCards({ busca: arg, status: 'todos' }),
+        `Contendo "${arg}"`,
+        `Não achei nada com "${arg}".`,
+      )
+
+    case 'atrasados':
+      return lista(regras.cardsAtrasados(), 'Atrasados', 'Nada atrasado.')
+
+    case 'projetos':
+      return textoDosProjetos()
+
+    case 'concluir': {
+      const { card, desbloqueadas } = regras.concluirCard(idValido(arg))
+      const destravou = desbloqueadas.length
+        ? '\n\nIsso destravou:\n' +
+          desbloqueadas.map((d) => `\`#${d.id}\` ${limpar(d.titulo)}`).join('\n')
+        : ''
+      return `Feito: *${limpar(card.titulo)}*${destravou}`
+    }
+
+    case 'adiar': {
+      const [bruto, ...resto] = arg.split(/\s+/)
+      const quando = resto.join(' ')
+      if (!quando) return 'Use assim: `/adiar 12 amanhã`'
+      const card = regras.adiarCard(idValido(bruto), quando)
+      return `Adiado: *${limpar(card.titulo)}* para ${card.data}.`
+    }
+
+    case 'foco': {
+      const card = regras.marcarHoje(idValido(arg), true)
+      return `No dia: *${limpar(card.titulo)}*.`
+    }
+
+    default:
+      return null
+  }
+}
+
+async function registrarFrase(chat, texto, titulo = null) {
+  const nome = [chat.first_name, chat.last_name].filter(Boolean).join(' ') || 'telegram'
+  const card = regras.criarCard({
+    titulo: (titulo ?? '').trim() || texto,
+    origem: `telegram ${nome}`,
+  })
+  await enviarPara(
+    chat.id,
+    `Registrado: *${limpar(card.titulo)}* \`#${card.id}\` ` +
+      `(${card.data === hoje() ? 'hoje' : card.data})`,
+  )
+}
+
+/** Executa a consulta que a IA descreveu. Os filtros são dela; a consulta é do banco. */
+function responderConsulta({ modo, projeto, tag, busca, tipo, status, so_hoje }) {
+  if (modo === 'projetos') return textoDosProjetos()
+  if (modo === 'atrasados') return lista(regras.cardsAtrasados(), 'Atrasados', 'Nada atrasado.')
+  if (modo === 'proxima') return textoDaProxima()
+
+  // Projeto sai do modelo: se ele inventou um nome, o filtro é descartado em
+  // vez de derrubar a resposta com um erro que não é da pessoa.
+  const alvo = projeto ? regras.buscarProjeto(projeto, { obrigatorio: false }) : null
+
+  const cards = regras.listarCards({
+    projeto: alvo?.id ?? null,
+    tag: tag || null,
+    busca: busca || null,
+    tipo: tipo || null,
+    status: status || 'aberto',
+    ate: so_hoje ? hoje() : null,
+  })
+
+  const filtro = [alvo ? `em ${alvo.nome}` : null, busca ? `sobre "${busca}"` : null, tag ? `#${tag}` : null]
+    .filter(Boolean)
+    .join(' ')
+
+  return lista(cards, filtro ? `Encontrei ${filtro}` : 'Encontrei', 'Não achei nada com esse filtro.')
+}
+
+/**
+ * Frase solta: a IA decide se é pergunta ou anotação.
+ *
+ * Dois caminhos levam ao registro — sem chave, e com a IA fora do ar. É a regra
+ * da casa: o sistema inteiro funciona sem IA, e esta porta não é exceção. O
+ * pior resultado possível aqui é a anotação sumir, então todo caminho de falha
+ * cai no lado que não perde nada.
+ */
+async function responderFraseSolta(chat, texto) {
+  if (!ia.temChave()) return registrarFrase(chat, texto)
+
+  let leitura
+  try {
+    leitura = await ia.interpretarMensagem(texto)
+  } catch (erro) {
+    console.error(`  [telegram] a IA não respondeu (${erro.message}) — registrando a frase.`)
+    return registrarFrase(chat, texto)
+  }
+
+  if (leitura?.intencao !== 'consulta') return registrarFrase(chat, texto, leitura?.titulo)
+
+  ultimaPergunta.set(String(chat.id), texto)
+  await enviarPara(
+    chat.id,
+    `${responderConsulta(leitura)}\n\n_Era para registrar? Manda_ /registrar`,
+  )
+}
+
 export async function processarMensagem(mensagem) {
   const chat = mensagem.chat
   const texto = (mensagem.text ?? '').trim()
@@ -187,26 +414,34 @@ export async function processarMensagem(mensagem) {
     .prepare('UPDATE telegram_chats SET ultimo_uso = ? WHERE chat_id = ?')
     .run(agora(), String(chat.id))
 
-  if (/^\/(hoje|start|ajuda|help)/i.test(texto)) {
-    if (/^\/(start|ajuda|help)/i.test(texto)) {
-      await enviarPara(chat.id, BEM_VINDO)
+  // `/comando@nome_do_bot` é como o Telegram entrega comando dentro de grupo.
+  const comando = texto.match(/^\/([a-zA-Z_]+)(?:@\S+)?\s*([\s\S]*)$/)
+  if (!comando) return responderFraseSolta(chat, texto)
+
+  const nome = comando[1].toLowerCase()
+
+  // O `/registrar` desfaz uma leitura errada da IA: recupera a frase que ela
+  // tratou como pergunta e a anota como deveria ter sido desde o começo.
+  if (nome === 'registrar') {
+    const guardada = ultimaPergunta.get(String(chat.id))
+    if (!guardada) {
+      await enviarPara(chat.id, 'Não tenho nenhuma frase esperando. Manda ela de novo.')
       return
     }
-    const lista = regras.listaDeHoje()
-    await enviarPara(
-      chat.id,
-      lista.length
-        ? `*Hoje* (${lista.length})\n` + lista.map((c) => `• ${c.titulo}`).join('\n')
-        : 'Nada aberto para hoje.',
-    )
-    return
+    ultimaPergunta.delete(String(chat.id))
+    return registrarFrase(chat, guardada)
   }
 
-  // Qualquer outra frase vira card. É a promessa do produto — registrar custa
-  // uma frase — chegando pelo celular sem precisar de aplicativo nenhum.
-  const nome = [chat.first_name, chat.last_name].filter(Boolean).join(' ') || 'telegram'
-  const card = regras.criarCard({ titulo: texto, origem: `telegram ${nome}` })
-  await enviarPara(chat.id, `Registrado: *${card.titulo}* (${card.data === hoje() ? 'hoje' : card.data})`)
+  try {
+    const resposta = executarComando(nome, comando[2] ?? '')
+    // Comando desconhecido NÃO vira card: errar o nome de um comando é
+    // exatamente como o quadro enche de lixo.
+    await enviarPara(chat.id, resposta ?? `Não conheço \`/${limpar(nome)}\`.\n\n${COMANDOS}`)
+  } catch (erro) {
+    // ErroDeRegra é escrito para a pessoa ler — vai inteiro. O resto sobe.
+    if (!(erro instanceof ErroDeRegra)) throw erro
+    await enviarPara(chat.id, erro.message)
+  }
 }
 
 /**

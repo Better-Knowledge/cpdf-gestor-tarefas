@@ -10,5 +10,8 @@ tarefas.db-shm
 node_modules/
 dist/
 
+# Saída dos processos quando sobem em segundo plano, sem janela.
+logs/
+
 .DS_Store
 Thumbs.db

@@ -529,6 +529,89 @@ export function aplicarQuebra(cardId, partes) {
   return { criados, removido: card.titulo }
 }
 
+// ---------------------------------------------------------------------------
+// Porta do Telegram — consulta ou registro?
+// ---------------------------------------------------------------------------
+
+const FERRAMENTA_INTERPRETAR = {
+  name: 'interpretar_mensagem',
+  description: 'Decide se a mensagem é uma consulta ao gestor ou uma tarefa para registrar.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      intencao: { type: 'string', enum: ['consulta', 'registro'] },
+      modo: {
+        type: 'string',
+        enum: ['cards', 'proxima', 'atrasados', 'projetos'],
+        description:
+          'Só em consulta. "cards" é a busca com filtros e atende quase tudo; os outros três ' +
+          'são as perguntas prontas.',
+      },
+      projeto: {
+        type: 'string',
+        description: 'Só quando a mensagem citar um projeto da lista. Nunca invente um nome.',
+      },
+      tag: { type: 'string', description: 'Só quando a mensagem citar uma tag da lista.' },
+      busca: {
+        type: 'string',
+        description:
+          'Trecho a procurar no título e na descrição. É o campo do ASSUNTO: para ' +
+          '"tarefas de esporte", `busca` é "esporte".',
+      },
+      tipo: { type: 'string', enum: ['tarefa', 'ideia'] },
+      status: { type: 'string', enum: ['aberto', 'feito', 'todos'] },
+      so_hoje: { type: 'boolean', description: 'Limitar ao que vence até hoje.' },
+      titulo: {
+        type: 'string',
+        description: 'Só em registro: a frase limpa, pronta para virar título de card.',
+      },
+    },
+    required: ['intencao'],
+  },
+}
+
+const INSTRUCAO_INTERPRETAR = `Você é a porta de entrada de um gestor de tarefas pessoal, no Telegram.
+
+Toda mensagem é uma de duas coisas:
+- CONSULTA — a pessoa quer saber algo do que já está registrado.
+- REGISTRO — a pessoa está anotando algo novo para fazer.
+
+Regras:
+- Pergunta é consulta mesmo sem ponto de interrogação: "o que tenho hoje", "tem algo de esporte",
+  "o que está atrasado", "me mostra o projeto X".
+- Imperativo ou assunto solto é registro: "comprar café", "ligar pro dentista", "revisar o contrato".
+- **Na dúvida, escolha REGISTRO.** Perder uma anotação é pior que responder demais: quem quer
+  consultar tem os comandos, quem perdeu a anotação não tem nada.
+- Consulta sobre um ASSUNTO usa \`busca\` com a palavra do assunto — não invente projeto para ela.
+- \`projeto\` e \`tag\` só saem da lista que vier no prompt. Nome que não estiver lá não existe.
+- Em registro, \`titulo\` é a frase sem os rodeios: "preciso lembrar de ligar pro dentista"
+  vira "ligar pro dentista".`
+
+/**
+ * Lê uma frase solta e diz o que ela é.
+ *
+ * A IA escolhe a intenção e os FILTROS — não executa nada. Quem consulta o
+ * banco continua sendo `regras.js`, com as mesmas funções que o painel usa.
+ * Modelo escolhendo parâmetro é uma coisa; modelo mexendo em card é outra, e
+ * esta porta não abre a segunda.
+ */
+export async function interpretarMensagem(texto) {
+  const projetos = regras.listarProjetos().map((p) => p.nome)
+  const tags = regras.listarTags().slice(0, 25).map((t) => t.nome)
+
+  return perguntar({
+    instrucao: INSTRUCAO_INTERPRETAR,
+    ferramenta: FERRAMENTA_INTERPRETAR,
+    prompt: `Hoje é ${hoje()}.
+
+PROJETOS QUE EXISTEM: ${projetos.join(', ') || '(nenhum)'}
+TAGS EM USO: ${tags.join(', ') || '(nenhuma)'}
+
+MENSAGEM RECEBIDA:
+${texto}`,
+  })
+}
+
 /** Roda tudo o que é da rotina diária. Usado pelo agendamento de madrugada. */
 export async function rotinaDiaria() {
   const relatorio = { em: agora() }

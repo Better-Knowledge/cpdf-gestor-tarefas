@@ -17,6 +17,11 @@ process.env.BANCO = BANCO_DE_TESTE
 process.env.TELEGRAM_BOT_TOKEN = 'token-de-teste'
 delete process.env.TELEGRAM_CHAT_ID
 
+// Sem chave, a porta do Telegram não chama a IA — os testes exercitam a base
+// determinística e nunca saem para a API da Anthropic, mesmo na máquina de
+// quem tem a chave exportada no ambiente.
+delete process.env.ANTHROPIC_API_KEY
+
 const db = await import('../server/db.js')
 const tg = await import('../server/telegram.js')
 
@@ -127,5 +132,90 @@ describe('transmissão do resumo', () => {
   test('sem ninguém pareado, avisa em vez de falhar em silêncio', async () => {
     for (const chat of tg.listarChats()) tg.removerChat(chat.chat_id)
     await assert.rejects(() => tg.transmitir('vazio'), /Nenhuma conversa pareada/)
+  })
+})
+
+/**
+ * Os comandos são a base que funciona SEM IA.
+ *
+ * A pergunta aqui é outra: **dá para usar o sistema pelo celular?** Antes destes
+ * comandos o bot só registrava e mostrava o dia — toda outra frase, inclusive
+ * pergunta, virava card.
+ */
+describe('comandos', () => {
+  const chat = chatDe(555, 'Fernando')
+  const ultima = () => enviadas.at(-1).text
+  let r
+
+  before(async () => {
+    r = await import('../server/regras.js')
+    const { codigo } = tg.gerarCodigo()
+    await receber({ text: `/parear ${codigo}`, chat })
+  })
+
+  test('/hoje traz o id na frente, que é por onde os outros comandos pegam', async () => {
+    r.criarCard({ titulo: 'tarefa de teste do dia' })
+    enviadas.length = 0
+    await receber({ text: '/hoje', chat })
+    assert.match(ultima(), /\*Hoje\*/)
+    assert.match(ultima(), /`#\d+` tarefa de teste do dia/)
+  })
+
+  test('comando desconhecido NÃO vira card', async () => {
+    const antes = r.listarCards({ status: 'todos' }).length
+    enviadas.length = 0
+    await receber({ text: '/tarefas', chat })
+    assert.match(ultima(), /Não conheço/)
+    assert.equal(r.listarCards({ status: 'todos' }).length, antes)
+  })
+
+  test('/concluir fecha o card e diz o que a conclusão destravou', async () => {
+    const base = r.criarCard({ titulo: 'gravar a aula' })
+    const dependente = r.criarCard({ titulo: 'publicar a aula' })
+    r.criarDependencia({ cardId: dependente.id, dependeDeId: base.id, confirmada: true })
+
+    enviadas.length = 0
+    await receber({ text: `/concluir ${base.id}`, chat })
+    assert.match(ultima(), /Feito/)
+    assert.match(ultima(), /publicar a aula/)
+    assert.equal(r.buscarCard(base.id).status, 'feita')
+  })
+
+  test('/adiar muda a data e não conclui', async () => {
+    const card = r.criarCard({ titulo: 'adiar isto' })
+    enviadas.length = 0
+    await receber({ text: `/adiar ${card.id} amanhã`, chat })
+    assert.match(ultima(), /Adiado/)
+    const depois = r.buscarCard(card.id)
+    assert.equal(depois.status, 'aberta')
+    assert.notEqual(depois.data, card.data)
+  })
+
+  test('id que não é número é recusado com mensagem de gente', async () => {
+    enviadas.length = 0
+    await receber({ text: '/concluir abacaxi', chat })
+    assert.match(ultima(), /não é um id/)
+  })
+
+  test('/buscar acha por trecho do título', async () => {
+    r.criarCard({ titulo: 'levar o cachorro no veterinário' })
+    enviadas.length = 0
+    await receber({ text: '/buscar cachorro', chat })
+    assert.match(ultima(), /cachorro/)
+  })
+
+  test('sem chave de IA, frase solta continua virando card', async () => {
+    enviadas.length = 0
+    await receber({ text: 'comprar guardanapo', chat })
+    assert.match(ultima(), /Registrado/)
+    assert.ok(r.procurarCards('comprar guardanapo')[0])
+  })
+
+  test('/registrar sem nada guardado avisa em vez de inventar card', async () => {
+    const antes = r.listarCards({ status: 'todos' }).length
+    enviadas.length = 0
+    await receber({ text: '/registrar', chat })
+    assert.match(ultima(), /nenhuma frase esperando/i)
+    assert.equal(r.listarCards({ status: 'todos' }).length, antes)
   })
 })
