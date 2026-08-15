@@ -62,16 +62,71 @@ function montarTexto() {
   return linhas.join('\n').trim()
 }
 
+/**
+ * Descobre para qual conversa mandar, quando o chat id não foi informado.
+ *
+ * O token diz QUEM envia; o chat id diz PARA QUEM. São coisas diferentes, e o
+ * Telegram exige as duas: um bot pode estar em muitas conversas e não pode
+ * iniciar nenhuma — quem fala primeiro é sempre a pessoa.
+ *
+ * Mas o segundo valor dá para deduzir: se você já mandou qualquer mensagem
+ * para o bot, ela está nas atualizações pendentes, e o chat id vem junto.
+ * Então o `.env` precisa mesmo só do token.
+ */
+async function descobrirChat(token) {
+  const resposta = await fetch(`https://api.telegram.org/bot${token}/getUpdates?limit=100`)
+  const dados = await resposta.json().catch(() => null)
+
+  if (!dados?.ok) {
+    // O caso mais comum: existe um webhook configurado, e aí o getUpdates é
+    // recusado. Nesse cenário só o chat id explícito resolve.
+    throw new Error(
+      `O Telegram não deixou eu procurar a conversa (${dados?.description ?? resposta.status}). ` +
+        'Preencha TELEGRAM_CHAT_ID no .env.',
+    )
+  }
+
+  const conversas = dados.result
+    .map((u) => u.message?.chat ?? u.channel_post?.chat)
+    .filter((c) => c?.id)
+
+  if (!conversas.length) {
+    throw new Error(
+      'Não achei nenhuma conversa com este bot. Abra o Telegram, mande qualquer mensagem ' +
+        'para ele, e rode de novo.',
+    )
+  }
+
+  // A mais recente, e privada quando houver — é quase sempre você mesmo.
+  const escolhida = conversas.filter((c) => c.type === 'private').at(-1) ?? conversas.at(-1)
+  const nome = escolhida.first_name ?? escolhida.title ?? escolhida.id
+  console.log(`  Conversa encontrada: ${nome} (chat id ${escolhida.id})`)
+  if (conversas.length > 1) {
+    console.log('  Havia mais de uma. Para fixar, ponha TELEGRAM_CHAT_ID no .env.')
+  }
+  return escolhida.id
+}
+
 async function enviar(texto) {
   const token = process.env.TELEGRAM_BOT_TOKEN
-  const chat = process.env.TELEGRAM_CHAT_ID
 
-  if (!token || !chat) {
+  if (!token) {
     console.log('\n--- resumo (sem Telegram configurado) ---\n')
     console.log(texto)
     console.log('\n--- fim ---\n')
-    console.log('Para mandar de verdade, preencha TELEGRAM_BOT_TOKEN e TELEGRAM_CHAT_ID no .env.')
+    console.log('Para mandar de verdade, preencha TELEGRAM_BOT_TOKEN no .env.')
     return
+  }
+
+  let chat = process.env.TELEGRAM_CHAT_ID
+  if (!chat) {
+    try {
+      chat = await descobrirChat(token)
+    } catch (erro) {
+      console.error(`\n  ${erro.message}\n`)
+      process.exitCode = 1
+      return
+    }
   }
 
   const resposta = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {

@@ -12,7 +12,7 @@ import express from 'express'
 
 import { carregarEnv, RAIZ } from './env.js'
 import { rotas, tratarErros } from './rotas.js'
-import { porteiro, permissoes, limitarTaxa, resumoDaTranca } from './auth.js'
+import { porteiro, permissoes, limitarTaxa, resumoDaTranca, configuracao, ehLocal } from './auth.js'
 import { banco, CAMINHO_BANCO } from './db.js'
 
 const DIST = join(RAIZ, 'dist')
@@ -61,6 +61,32 @@ if (existsSync(DIST)) {
 app.use(tratarErros)
 
 banco() // cria e migra o banco antes de aceitar a primeira requisição
+
+/*
+ * Exposto na rede e sem credencial nenhuma: recusa subir.
+ *
+ * As chaves do banco são ADITIVAS, não obrigatórias — se o .env não tiver nem
+ * senha nem chave-mestra, o sistema aceita qualquer requisição sem credencial,
+ * e num domínio público isso é um gestor de tarefas aberto para a internet.
+ *
+ * Falhar ao subir é escandaloso e é de propósito: um contêiner que não sobe
+ * você conserta em dois minutos; um que sobe aberto você descobre tarde.
+ */
+if (!ehLocal(HOST) && !configuracao().ligada) {
+  console.error(`
+  RECUSANDO SUBIR.
+
+  O servidor está configurado para ouvir em ${HOST} — ou seja, exposto — e o
+  .env não tem NENHUMA credencial.
+
+  Preencha AUTH_USUARIO e AUTH_SENHA no .env (e, se quiser, API_KEY) e suba de
+  novo. As chaves criadas no painel não substituem isto: elas dão acesso a
+  quem as tem, mas não exigem credencial de quem não tem.
+
+  Se a intenção era rodar só nesta máquina, tire o HOST do .env.
+`)
+  process.exit(1)
+}
 
 app.listen(PORTA, HOST, () => {
   console.log(`\n  Gestor de tarefas no ar em http://localhost:${PORTA}`)

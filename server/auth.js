@@ -237,10 +237,20 @@ export function limitarTaxa(req, res, proximo) {
   return proximo()
 }
 
+/**
+ * Ouvir só na própria máquina é a tranca que vem antes da senha.
+ *
+ * `::1` é o localhost do IPv6, e esquecer dele faria o servidor achar que está
+ * exposto quando não está.
+ */
+export function ehLocal(host) {
+  return ['127.0.0.1', 'localhost', '::1'].includes(host)
+}
+
 /** O que o servidor imprime ao subir, para ninguém se enganar sobre o estado. */
 export function resumoDaTranca({ host }) {
   const config = configuracao()
-  const local = host === '127.0.0.1' || host === 'localhost'
+  const local = ehLocal(host)
 
   if (!config.ligada) {
     return local

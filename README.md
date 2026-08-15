@@ -100,26 +100,42 @@ código dela seriam servidos para qualquer um.
 
 > **Expor na rede.** O padrão `HOST=127.0.0.1` é a tranca que vem antes da
 > senha. Só mude para `0.0.0.0` se você realmente quiser que outras máquinas
-> alcancem o sistema — e preencha senha e chave antes. Se subir exposto e sem
-> senha, o servidor avisa em letras grandes no terminal.
+> alcancem o sistema — e preencha `AUTH_USUARIO` e `AUTH_SENHA` antes.
+>
+> **Exposto e sem nenhuma credencial no `.env`, o servidor recusa subir.** As
+> chaves criadas no painel não contam aqui: elas dão acesso a quem as tem, mas
+> não *exigem* credencial de quem não tem. Um contêiner que não sobe você
+> conserta em dois minutos; um que sobe aberto você descobre tarde.
 
-### A chave de convidado
+### As chaves dos agentes
 
-Serve para um cenário só: **demonstração ao vivo**, com agentes de outras
-pessoas escrevendo no mesmo quadro projetado.
+**Crie no painel, em `chaves` — não no `.env`.** Uma por agente: assim dá para
+revogar uma sem derrubar as outras, e cada card mostra de quem veio.
 
-```bash
-npm run chave     # gere uma segunda, e ponha em API_KEY_CONVIDADO
-```
+A chave aparece **uma única vez**, na hora em que é criada. Depois disso nem o
+sistema sabe qual era — o banco guarda só o hash.
 
-| | Dono (`API_KEY`) | Convidado (`API_KEY_CONVIDADO`) |
+Cada chave tem **duas dimensões de escopo, independentes**:
+
+- **Papel** — `dono` faz tudo; `convidado` registra, conclui, adia e move.
+- **Escopo de IA** — se pode disparar as rotinas que gastam a sua conta da
+  Anthropic.
+
+São separadas de propósito: dá para ter um convidado de confiança que roda IA,
+e um agente organizador que é dono mas nunca gasta a sua conta.
+
+O `API_KEY` do `.env` continua existindo como **chave-mestra** — a apólice para
+o caso de você revogar a última chave de dono por engano.
+
+| | Dono | Convidado |
 |---|---|---|
 | Ler tudo | sim | sim |
 | Registrar, concluir, adiar, mover | sim | sim |
 | Apagar card · quebrar card | sim | **não** |
 | Criar e alterar projeto e pipeline | sim | **não** |
 | Replanejar em bloco | sim | **não** |
-| Rodar as rotinas de IA | sim | **não** |
+| Ver e criar chaves | sim | **não** |
+| Rodar as rotinas de IA | conforme o escopo | conforme o escopo |
 | Limite de chamadas por minuto | 600 | 60 |
 
 As três proibições têm motivos diferentes, e vale saber qual é qual: apagar é
